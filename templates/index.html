@@ -7,9 +7,9 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
-            background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed; /* Grey aesthetic */
+            background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
             background-size: cover;
-            background-color: #d3d3d3; /* Fallback grey */
+            background-color: #d3d3d3;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -29,7 +29,7 @@
             overflow: hidden;
             animation: slideUp 0.7s ease-out;
             position: relative;
-            transition: margin-left 0.5s ease; /* Dynamic adjustment */
+            transition: margin-left 0.5s ease;
         }
         @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .chat-wrapper.menu-open { margin-left: 250px; }
@@ -47,7 +47,7 @@
         .user-icon {
             width: 40px;
             height: 40px;
-            background: #1a73e8; /* Placeholder profile image */
+            background: #1a73e8;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -80,7 +80,6 @@
             transition: transform 0.3s, background 0.3s;
         }
         .menu-toggle:hover, .menu-toggle:focus { transform: rotate(90deg); background: #1557b0; }
-        .logo { display: none; } /* Removed logo to make space for user info */
         .sidebar {
             width: 250px;
             background: linear-gradient(135deg, #1e3c72, #2a5298);
@@ -131,7 +130,7 @@
             display: flex;
             flex-direction: column;
             width: 100%;
-            transition: width 0.5s ease; /* Dynamic width adjustment */
+            transition: width 0.5s ease;
         }
         .chat-content.menu-open { width: calc(100% - 250px); }
         @media (max-width: 600px) {
@@ -205,7 +204,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            transition: width 0.5s ease, padding 0.5s ease; /* Dynamic adjustment */
+            transition: width 0.5s ease, padding 0.5s ease;
         }
         .input-area.menu-open { width: calc(100% - 250px); padding-left: 15px; }
         @media (max-width: 600px) {
@@ -274,18 +273,18 @@
         const chatContent = document.getElementById('chatContent');
         const inputArea = document.getElementById('inputArea');
         const userInfo = document.getElementById('userInfo');
-        let userId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+        let userId = "{{ user_id }}"; // From template
+        let username = "{{ username }}"; // From template
         let isChatStarted = false;
 
         function updateUserInfo() {
-            if (sessionStorage.getItem('username')) {
-                const username = sessionStorage.getItem('username');
-                userInfo.innerHTML = `<div class="user-icon" tabindex="0" aria-label="User profile for ${username}" onkeydown="if(event.key === 'Enter') alert('Profile: ${username}')">U</div><span>${username}</span>`;
-            } else if (localStorage.getItem('username')) {
-                const username = localStorage.getItem('username');
+            if (username) {
                 userInfo.innerHTML = `<div class="user-icon" tabindex="0" aria-label="User profile for ${username}" onkeydown="if(event.key === 'Enter') alert('Profile: ${username}')">U</div><span>${username}</span>`;
             }
         }
+
+        // Call updateUserInfo on page load
+        window.onload = updateUserInfo;
 
         function toggleSidebar() {
             sidebar.classList.toggle('active');
@@ -413,13 +412,6 @@
                 }
             }
         });
-
-        if (sessionStorage.getItem('userId')) {
-            userId = sessionStorage.getItem('userId');
-            sessionStorage.removeItem('userId');
-            localStorage.setItem('userId', userId);
-            updateUserInfo();
-        }
     </script>
 </body>
 </html>

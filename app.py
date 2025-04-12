@@ -5,6 +5,7 @@ import os
 import sqlite3
 from datetime import datetime
 import json
+import random
 
 # Set up NLTK
 nltk_data_path = os.path.join(os.getcwd(), 'nltk_data')
@@ -98,12 +99,15 @@ def home():
     if not session.get('logged_in'):
         credentials = load_credentials()
         if credentials:
-            session['logged_in'] = True
-            session['user_id'] = credentials['username']
-            return redirect(url_for('home'))
+            username = credentials['username']
+            user = get_user(username)
+            if user and check_password_hash(user[2], credentials['password']):
+                session['logged_in'] = True
+                session['user_id'] = username
+                return redirect(url_for('home'))
         return redirect(url_for('login'))
     user_id = session.get('user_id')
-    return render_template("index.html", logged_in=True, user_id=user_id)
+    return render_template("index.html", logged_in=True, user_id=user_id, username=user_id)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -114,7 +118,6 @@ def login():
         if user and check_password_hash(user[2], password):
             session['logged_in'] = True
             session['user_id'] = username
-            sessionStorage.setItem('username', username); // Temporary for UI
             save_credentials(username, password)  # Save for persistence
             return redirect(url_for('home'))
         return render_template("login.html", error="Invalid username or password")
@@ -200,4 +203,4 @@ def get_history():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)  # Enable debug for error tracking
+    app.run(host="0.0.0.0", port=port, debug=True)  # Enable debug for local testing
