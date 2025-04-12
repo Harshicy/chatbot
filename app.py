@@ -13,23 +13,30 @@ if not os.path.exists(nltk_data_path):
 nltk.data.path.append(nltk_data_path)
 try:
     nltk.download('punkt', download_dir=nltk_data_path, quiet=True)
+    nltk.download('wordnet', download_dir=nltk_data_path, quiet=True)  # For synonyms
 except Exception as e:
     print(f"NLTK download failed: {e}")
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session management; in production, use a secure key
+app.secret_key = os.urandom(24)
 
-# Initialize chatbot
-pairs = [
-    [r"hi|hello|hey", ["Hello!", "Hi there!", "Hey! How can I help you?"]],
-    [r"how are you", ["I'm doing great, thanks! How about you?", "As an AI, I'm always good!"]],
-    [r"what is your name", ["I'm Grok, nice to meet you!", "My name is Grok, created by xAI"]],
-    [r"bye|goodbye", ["See you later!", "Goodbye!", "Have a great day!"]],
-    [r"what can you do", ["I can chat with you! Try asking my name or how I am."]],
-    [r"(.*) weather (.*)", ["I'm not a weather bot, but I can chat about other things!"]],
-    [r"(.*)", ["Interesting! Tell me more.", "Can you clarify that?", "I'm listening..."]]
-]
-chatbot = Chat(pairs, reflections)
+# Knowledge base for human-like responses
+knowledge_base = {
+    "greetings": ["Hello! How can I assist you today?", "Hi there! What’s on your mind?", "Hey! Ready to chat?"],
+    "farewells": ["Goodbye! Come back soon!", "See you later!", "Take care!"],
+    "how_are_you": ["I'm doing great, thanks for asking! How about you?", "As an AI, I'm always good! How can I help you today?"],
+    "name": ["I'm Harsha's Chatbot, created to assist you!", "You can call me Harsha's Chatbot!"],
+    "weather": ["I can’t check the weather, but I’d love to talk about something else! What’s on your mind?"],
+    "help": ["I can chat with you! Try asking about my name, how I am, or anything you like!"],
+    "default": ["That’s interesting! Can you tell me more?", "I’m not sure I understand, could you elaborate?", "Let’s explore that—tell me more!"]
+}
+
+# Initialize chatbot with dynamic responses
+def get_response(message):
+    for pattern, responses in knowledge_base.items():
+        if any(word in message.lower() for word in pattern.split()):
+            return responses[len(responses) % len(message)]  # Simple variation
+    return knowledge_base["default"][len(message) % len(knowledge_base["default"])]
 
 # SQLite database setup
 def init_db():
@@ -67,7 +74,7 @@ def login():
         user = get_user(username)
         if user and check_password_hash(user[2], password):
             session['logged_in'] = True
-            session['user_id'] = username  # Use username as user_id
+            session['user_id'] = username
             return redirect(url_for('home'))
         return render_template("login.html", error="Invalid username or password")
     return render_template("login.html")
@@ -83,6 +90,8 @@ def register():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
+        if len(password) < 6:
+            return render_template("register.html", error="Password must be at least 6 characters")
         if get_user(username):
             return render_template("register.html", error="Username already exists")
         hashed_password = generate_password_hash(password)
@@ -101,7 +110,7 @@ def get_response():
     user_message = request.form.get("message")
     user_id = session.get('user_id')
     if user_message:
-        response = chatbot.respond(user_message)
+        response = get_response(user_message)
         save_message(user_id, user_message, True)
         save_message(user_id, response, False)
         return response
