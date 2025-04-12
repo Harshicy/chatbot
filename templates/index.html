@@ -1,50 +1,115 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simple Chatbot</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>harsha's Chatbot</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            background-color: #f4f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
         .chat-container {
-            width: 400px;
-            margin: 50px auto;
-            border: 1px solid #ccc;
-            padding: 20px;
-            border-radius: 5px;
+            width: 100%;
+            max-width: 800px;
+            height: 80vh;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background-color: #1a73e8;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
         }
         .chat-box {
-            height: 300px;
+            flex: 1;
             overflow-y: auto;
-            border: 1px solid #eee;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .message {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 15px;
             margin: 5px 0;
-            padding: 5px;
-        }
-        .user-message {
-            background-color: #e3f2fd;
-            text-align: right;
+            font-size: 1em;
+            line-height: 1.4;
         }
         .bot-message {
-            background-color: #f5f5f5;
-            text-align: left;
+            background-color: #e3f2fd;
+            align-self: flex-start;
+        }
+        .user-message {
+            background-color: #d1e7dd;
+            align-self: flex-end;
+            text-align: right;
         }
         .input-area {
             display: flex;
-            gap: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border-top: 1px solid #ddd;
         }
-        input {
-            flex-grow: 1;
-            padding: 5px;
+        .input-area input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+            font-size: 1em;
+        }
+        .input-area button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .input-area button:hover {
+            background-color: #1557b0;
+        }
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 100%;
+                height: 90vh;
+                border-radius: 0;
+            }
+            .chat-box {
+                padding: 10px;
+            }
+            .message {
+                max-width: 80%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="chat-container">
-        <h2>Chatbot</h2>
-        <div class="chat-box" id="chatBox">
-            <div class="message bot-message">Hello! How can I assist you today?</div>
-        </div>
+        <div class="chat-header">Grok Chatbot</div>
+        <div class="chat-box" id="chatBox"></div>
         <div class="input-area">
             <input type="text" id="userInput" placeholder="Type your message...">
             <button onclick="sendMessage()">Send</button>
@@ -52,44 +117,46 @@
     </div>
 
     <script>
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+
+        function addMessage(message, isUser = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
+            msgDiv.textContent = message;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to latest message
+        }
+
         function sendMessage() {
-            const input = document.getElementById("userInput");
-            const message = input.value.trim();
+            const message = userInput.value.trim();
             if (message) {
-                const chatBox = document.getElementById("chatBox");
-                chatBox.innerHTML += `<div class="message user-message">${message}</div>`;
-                
+                addMessage(message, true); // User message
+                userInput.value = '';
+
                 fetch('/get_response', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'message=' + encodeURIComponent(message)
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `message=${encodeURIComponent(message)}`
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok: ' + response.status);
-                    }
-                    return response.text();
-                })
+                .then(response => response.text())
                 .then(data => {
-                    chatBox.innerHTML += `<div class="message bot-message">${data}</div>`;
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                    addMessage(data); // Bot response
                 })
                 .catch(error => {
+                    addMessage('Error: Could not get response.', true);
                     console.error('Error:', error);
-                    chatBox.innerHTML += `<div class="message bot-message">Sorry, something went wrong!</div>`;
                 });
-                
-                input.value = '';
             }
         }
 
-        document.getElementById("userInput").addEventListener("keypress", function(e) {
-            if (e.key === "Enter") {
-                sendMessage();
-            }
+        // Allow sending with Enter key
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
         });
+
+        // Initial bot message
+        addMessage('Hello! How can I assist you today?');
     </script>
 </body>
 </html>
