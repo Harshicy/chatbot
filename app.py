@@ -6,6 +6,16 @@ import sqlite3
 from datetime import datetime
 import json
 import random
+import logging
+from cryptography.fernet import Fernet  # For encrypting credentials
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Generate a key for Fernet (store securely in production)
+key = Fernet.generate_key()
+cipher_suite = Fernet(key)
 
 # Set up NLTK
 nltk_data_path = os.path.join(os.getcwd(), 'nltk_data')
@@ -16,7 +26,7 @@ try:
     nltk.download('punkt', download_dir=nltk_data_path, quiet=True)
     nltk.download('wordnet', download_dir=nltk_data_path, quiet=True)
 except Exception as e:
-    print(f"NLTK download failed: {e}")
+    logger.error(f"NLTK download failed: {e}")
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -56,14 +66,18 @@ knowledge_base = {
 }
 
 def get_response(message):
+    if not message:
+        return "Please provide a message!"
     message = message.lower()
     for category, responses in knowledge_base.items():
         if any(keyword in message for keyword in category.split('_')) or any(word in message for word in category.split()):
+            logger.debug(f"Matched category: {category}")
             return random.choice(responses)
+    logger.debug("No category matched, using default")
     return random.choice(knowledge_base["default"])
 
 def init_db():
-    conn = sqlite3.connect('chat_history.db')
+    conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT)''')
@@ -75,38 +89,37 @@ def init_db():
 init_db()
 
 def get_user(username):
-    conn = sqlite3.connect('chat_history.db')
+    conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username = ?", (username,))
     user = c.fetchone()
     conn.close()
     return user
 
-def save_credentials(username, password):
+def encrypt_credentials(username, password):
     credentials = {"username": username, "password": password}
-    with open('credentials.json', 'w') as f:
-        json.dump(credentials, f)
+    credentials_json = json.dumps(credentials).encode()
+    encrypted_data = cipher_suite.encrypt(credentials_json)
+    with open('credentials.enc', 'wb') as f:
+        f.write(encrypted_data)
 
-def load_credentials():
-    credentials_file = 'credentials.json'
+def decrypt_credentials():
+    credentials_file = 'credentials.enc'
     if not os.path.exists(credentials_file):
-        # Initialize with empty dict if file doesn't exist
-        with open(credentials_file, 'w') as f:
-            json.dump({}, f)
         return {}
     try:
-        with open(credentials_file, 'r') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        # Handle corrupted file by returning empty dict
-        with open(credentials_file, 'w') as f:
-            json.dump({}, f)
+        with open(credentials_file, 'rb') as f:
+            encrypted_data = f.read()
+        decrypted_data = cipher_suite.decrypt(encrypted_data)
+        return json.loads(decrypted_data.decode())
+    except Exception as e:
+        logger.error(f"Decryption error: {e}")
         return {}
 
 @app.route("/")
 def home():
     if not session.get('logged_in'):
-        credentials = load_credentials()
+        credentials = decrypt_credentials()
         if credentials and 'username' in credentials and 'password' in credentials:
             username = credentials['username']
             user = get_user(username)
@@ -127,7 +140,7 @@ def login():
         if user and check_password_hash(user[2], password):
             session['logged_in'] = True
             session['user_id'] = username
-            save_credentials(username, password)  # Save for persistence
+            encrypt_credentials(username, password)
             return redirect(url_for('home'))
         return render_template("login.html", error="Invalid username or password")
     return render_template("login.html")
@@ -148,12 +161,12 @@ def register():
         if get_user(username):
             return render_template("register.html", error="Username already exists")
         hashed_password = generate_password_hash(password)
-        conn = sqlite3.connect('chat_history.db')
+        conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
         c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
         conn.commit()
         conn.close()
-        save_credentials(username, password)  # Save after registration
+        encrypt_credentials(username, password)
         return redirect(url_for('login'))
     return render_template("register.html")
 
@@ -164,14 +177,16 @@ def get_response_route():
     try:
         user_message = request.form.get("message")
         user_id = session.get('user_id')
+        logger.debug(f"Received message: {user_message}")
         if user_message:
             response = get_response(user_message)
+            logger.debug(f"Generated response: {response}")
             save_message(user_id, user_message, True)
             save_message(user_id, response, False)
             return response
         return "No message provided"
     except Exception as e:
-        print(f"Error in get_response: {e}")
+        logger.error(f"Error in get_response: {e}")
         return "An error occurred. Please try again."
 
 @app.route("/save_message", methods=["POST"])
@@ -183,7 +198,7 @@ def save_message():
         message = request.form.get("message")
         is_user = request.form.get("isUser") == "true"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn = sqlite3.connect('chat_history.db')
+        conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
         c.execute("INSERT INTO messages (user_id, message, is_user, timestamp) VALUES (?, ?, ?, ?)",
                   (user_id, message, is_user, timestamp))
@@ -191,7 +206,7 @@ def save_message():
         conn.close()
         return "OK"
     except Exception as e:
-        print(f"Error in save_message: {e}")
+        logger.error(f"Error in save_message: {e}")
         return "Error saving message"
 
 @app.route("/get_history")
@@ -200,16 +215,16 @@ def get_history():
         return jsonify({"error": "Please log in"})
     try:
         user_id = session.get('user_id')
-        conn = sqlite3.connect('chat_history.db')
+        conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
         c.execute("SELECT timestamp, message, is_user FROM messages WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
         history = [{"timestamp": row[0], "message": row[1], "isUser": bool(row[2])} for row in c.fetchall()]
         conn.close()
         return jsonify(history)
     except Exception as e:
-        print(f"Error in get_history: {e}")
+        logger.error(f"Error in get_history: {e}")
         return jsonify({"error": "Failed to load history"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)  # Enable debug for local testing
+    app.run(host="0.0.0.0", port=port, debug=True)

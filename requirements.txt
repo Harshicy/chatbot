@@ -13,3 +13,4 @@ regex==2024.11.6
 setuptools==78.1.0
 tqdm==4.67.1
 werkzeug==2.3.6
+cryptography==42.0.5

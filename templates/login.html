@@ -3,41 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Harsha's Chatbot - Login</title>
+    <title>Login - Harsha's Chatbot</title>
     <style>
-        body { background: linear-gradient(135deg, #1e3c72, #2a5298); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .login-container { background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3); width: 100%; max-width: 450px; animation: slideUp 0.7s ease-out; }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        h2 { color: #1a73e8; text-align: center; margin-bottom: 25px; font-size: 2em; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 1em; transition: border-color 0.3s; }
-        input:focus { border-color: #1a73e8; box-shadow: 0 0 5px rgba(26, 115, 232, 0.5); }
-        button { width: 100%; padding: 12px; background: linear-gradient(90deg, #1e3c72, #2a5298); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; transition: transform 0.3s, background 0.3s; }
-        button:hover { transform: scale(1.05); background: linear-gradient(90deg, #1557b0, #1e3c72); }
-        .error { color: #dc3545; text-align: center; margin-top: 15px; font-size: 0.9em; }
-        a { display: block; text-align: center; margin-top: 15px; color: #1a73e8; text-decoration: none; font-weight: 500; transition: color 0.3s; }
-        a:hover { color: #1557b0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body {
+            background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+            background-size: cover;
+            background-color: #d3d3d3;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            animation: slideIn 1s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .login-container h2 {
+            color: #1a73e8;
+            margin-bottom: 20px;
+            font-size: 2em;
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .login-container input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1em;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .login-container input:focus {
+            border-color: #1a73e8;
+            box-shadow: 0 0 10px rgba(26, 115, 232, 0.3);
+        }
+        .login-container button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(90deg, #1e3c72, #2a5298);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 20px;
+            transition: transform 0.3s, background 0.3s;
+            animation: bounceIn 1s ease-out;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .login-container button:hover {
+            transform: scale(1.05);
+            background: linear-gradient(90deg, #1557b0, #1e3c72);
+        }
+        .login-container .error {
+            color: #dc3545;
+            margin-top: 10px;
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        .login-container p {
+            margin-top: 15px;
+            color: #666;
+        }
+        .login-container p a {
+            color: #1a73e8;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .login-container p a:hover {
+            color: #1557b0;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <h2>Harsha's Chatbot - Login</h2>
+        <h2>Login</h2>
         {% if error %}
-            <p class="error">{{ error }}</p>
+            <div class="error">{{ error }}</div>
         {% endif %}
         <form method="POST">
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
-            </div>
+            <input type="text" name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
             <button type="submit">Login</button>
         </form>
-        <a href="{{ url_for('register') }}">Don't have an account? Register</a>
+        <p>Don't have an account? <a href="/register">Register here</a></p>
     </div>
 </body>
 </html>
