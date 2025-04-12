@@ -179,8 +179,8 @@
         const userInput = document.getElementById('userInput');
         const historySection = document.getElementById('historySection');
         const historyList = document.getElementById('historyList');
-        let userId = localStorage.getItem('userId') || Math.random().toString(36).substr(2, 9);
-
+        let userId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || Math.random().toString(36).substr(2, 9);
+    
         function addMessage(message, isUser = false) {
             const msgDiv = document.createElement('div');
             msgDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
@@ -189,7 +189,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
             saveMessage(userId, message, isUser);
         }
-
+    
         function saveMessage(userId, message, isUser) {
             fetch('/save_message', {
                 method: 'POST',
@@ -197,7 +197,7 @@
                 body: `userId=${encodeURIComponent(userId)}&message=${encodeURIComponent(message)}&isUser=${isUser}`
             }).catch(error => console.error('Save failed:', error));
         }
-
+    
         function loadHistory() {
             fetch(`/get_history?userId=${encodeURIComponent(userId)}`)
                 .then(response => response.json())
@@ -212,13 +212,13 @@
                 })
                 .catch(error => console.error('History load failed:', error));
         }
-
+    
         function sendMessage() {
             const message = userInput.value.trim();
             if (message) {
                 addMessage(message, true);
                 userInput.value = '';
-
+    
                 fetch('/get_response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -232,20 +232,24 @@
                 });
             }
         }
-
+    
         function toggleHistory() {
             historySection.classList.toggle('active');
             if (historySection.classList.contains('active')) {
                 loadHistory();
             }
         }
-
+    
         userInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') sendMessage();
         });
-
-        addMessage('Welcome to Grok Chatbot! Please log in or continue as a guest.');
-        localStorage.setItem('userId', userId); // Persist userId
+    
+        // Remove initial message since login is handled
+        // userId is now set from session or local storage after login
+        if (sessionStorage.getItem('userId')) {
+            sessionStorage.removeItem('userId'); // Clear temp storage
+            localStorage.setItem('userId', userId); // Persist after login
+        }
     </script>
 </body>
 </html>
