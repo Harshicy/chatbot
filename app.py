@@ -88,17 +88,26 @@ def save_credentials(username, password):
         json.dump(credentials, f)
 
 def load_credentials():
+    credentials_file = 'credentials.json'
+    if not os.path.exists(credentials_file):
+        # Initialize with empty dict if file doesn't exist
+        with open(credentials_file, 'w') as f:
+            json.dump({}, f)
+        return {}
     try:
-        with open('credentials.json', 'r') as f:
+        with open(credentials_file, 'r') as f:
             return json.load(f)
-    except FileNotFoundError:
-        return None
+    except json.JSONDecodeError:
+        # Handle corrupted file by returning empty dict
+        with open(credentials_file, 'w') as f:
+            json.dump({}, f)
+        return {}
 
 @app.route("/")
 def home():
     if not session.get('logged_in'):
         credentials = load_credentials()
-        if credentials:
+        if credentials and 'username' in credentials and 'password' in credentials:
             username = credentials['username']
             user = get_user(username)
             if user and check_password_hash(user[2], credentials['password']):
