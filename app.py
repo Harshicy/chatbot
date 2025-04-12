@@ -13,6 +13,7 @@ pairs = [
     [r"how are you", ["I'm doing great, thanks! How about you?", "As an AI, I'm always good!"]],
     [r"what is your name", ["I'm Grok, nice to meet you!", "My name is Grok, created by xAI"]],
     [r"bye|goodbye", ["See you later!", "Goodbye!", "Have a great day!"]],
+    [r"what can you do", ["I can chat with you! Try asking my name or how I am."]],
     [r"(.*) weather (.*)", ["I'm not a weather bot, but I can chat about other things!"]],
     [r"(.*)", ["Interesting! Tell me more.", "Can you clarify that?", "I'm listening..."]]
 ]
