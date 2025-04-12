@@ -7,20 +7,17 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
-            background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+            background: url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed; /* Grey aesthetic */
             background-size: cover;
+            background-color: #d3d3d3; /* Fallback grey */
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
+            overflow: auto;
             animation: bgFade 10s infinite ease-in-out;
         }
-        @keyframes bgFade {
-            0% { filter: brightness(1); }
-            50% { filter: brightness(1.2); }
-            100% { filter: brightness(1); }
-        }
+        @keyframes bgFade { 0% { filter: brightness(0.9); } 50% { filter: brightness(1.1); } 100% { filter: brightness(0.9); } }
         .chat-wrapper {
             width: 100%;
             max-width: 1000px;
@@ -31,11 +28,39 @@
             box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
             overflow: hidden;
             animation: slideUp 0.7s ease-out;
+            position: relative;
+            transition: margin-left 0.5s ease; /* Dynamic adjustment */
         }
-        @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .chat-wrapper.menu-open { margin-left: 250px; }
+        @media (max-width: 600px) {
+            .chat-wrapper.menu-open { margin-left: 0; width: 100%; }
         }
+        .user-info {
+            position: absolute;
+            top: 10px;
+            left: 70px;
+            display: flex;
+            align-items: center;
+            z-index: 20;
+        }
+        .user-icon {
+            width: 40px;
+            height: 40px;
+            background: #1a73e8; /* Placeholder profile image */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.3s;
+            margin-right: 10px;
+        }
+        .user-icon:hover, .user-icon:focus { transform: scale(1.1); }
+        .user-info span { color: #1a73e8; font-weight: 500; }
         .menu-toggle {
             position: absolute;
             top: 10px;
@@ -50,51 +75,67 @@
             color: white;
             font-size: 1.5em;
             cursor: pointer;
-            z-index: 10;
-            transition: transform 0.3s;
+            z-index: 20;
+            outline: none;
+            transition: transform 0.3s, background 0.3s;
         }
-        .menu-toggle:hover { transform: rotate(90deg); }
-        .logo {
-            position: absolute;
-            top: 15px;
-            left: 70px;
-            font-size: 2em;
-            font-weight: bold;
-            color: #1a73e8;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
+        .menu-toggle:hover, .menu-toggle:focus { transform: rotate(90deg); background: #1557b0; }
+        .logo { display: none; } /* Removed logo to make space for user info */
         .sidebar {
             width: 250px;
             background: linear-gradient(135deg, #1e3c72, #2a5298);
             color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
             transform: translateX(-100%);
             transition: transform 0.5s ease;
-            position: absolute;
-            height: 90vh;
-            z-index: 9;
+            z-index: 15;
             padding: 20px;
             overflow-y: auto;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
         }
         .sidebar.active { transform: translateX(0); }
+        .sidebar-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: #dc3545;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            outline: none;
+            transition: background 0.3s;
+        }
+        .sidebar-close:hover, .sidebar-close:focus { background: #c82333; }
         .sidebar h3 { margin-bottom: 20px; animation: fadeIn 1s; }
         .sidebar ul { list-style: none; }
-        .sidebar ul li { padding: 10px; cursor: pointer; animation: slideInLeft 0.5s ease backwards; }
-        .sidebar ul li:hover { background: rgba(255, 255, 255, 0.1); border-radius: 5px; }
-        @keyframes slideInLeft {
-            from { transform: translateX(-20px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .sidebar ul li {
+            padding: 10px;
+            cursor: pointer;
+            outline: none;
+            animation: slideInLeft 0.5s ease backwards;
         }
+        .sidebar ul li:hover, .sidebar ul li:focus { background: rgba(255, 255, 255, 0.1); border-radius: 5px; }
+        @keyframes slideInLeft { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .chat-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             width: 100%;
+            transition: width 0.5s ease; /* Dynamic width adjustment */
+        }
+        .chat-content.menu-open { width: calc(100% - 250px); }
+        @media (max-width: 600px) {
+            .chat-content.menu-open { width: 100%; }
         }
         .chat-box {
             flex: 1;
@@ -104,6 +145,23 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        .welcome-text {
+            text-align: center;
+            font-size: 1.5em;
+            color: #1a73e8;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            animation: bounceIn 1s;
+            cursor: pointer;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
         }
         .history-section {
             padding: 15px;
@@ -137,6 +195,7 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             animation: slideIn 0.3s ease-out;
         }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .bot-message { background: #e3f2fd; align-self: flex-start; }
         .user-message { background: #d1e7dd; align-self: flex-end; text-align: right; }
         .input-area {
@@ -146,6 +205,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            transition: width 0.5s ease, padding 0.5s ease; /* Dynamic adjustment */
+        }
+        .input-area.menu-open { width: calc(100% - 250px); padding-left: 15px; }
+        @media (max-width: 600px) {
+            .input-area.menu-open { width: 100%; padding-left: 15px; }
         }
         .input-area input {
             flex: 1;
@@ -171,51 +235,32 @@
             transform: scale(1.05);
             background: linear-gradient(90deg, #1557b0, #1e3c72);
         }
-        .toggle-history {
-            padding: 10px 15px;
-            background: #2a5298;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin-left: 10px;
-            transition: background 0.3s;
-        }
-        .toggle-history:hover { background: #1557b0; }
-        @media (max-width: 600px) {
-            .chat-wrapper { width: 100%; height: 90vh; border-radius: 0; }
-            .chat-box { padding: 15px; }
-            .message { max-width: 80%; }
-            .input-area { flex-direction: column; }
-            .input-area input, .input-area button { width: 100%; margin-bottom: 10px; }
-            .toggle-history { width: 100%; margin-left: 0; }
-            .sidebar { width: 200px; }
-        }
     </style>
 </head>
 <body>
-    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
-    <div class="logo">H</div>
-    <div class="chat-wrapper">
-        <div class="sidebar" id="sidebar">
+    <div class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu" tabindex="0" onkeydown="if(event.key === 'Enter' || event.key === ' ') toggleSidebar()">☰</div>
+    <div class="user-info" id="userInfo"></div>
+    <div class="chat-wrapper" id="chatWrapper">
+        <div class="sidebar" id="sidebar" role="navigation" aria-label="Main menu">
+            <div class="sidebar-close" onclick="toggleSidebar()" aria-label="Close menu" tabindex="0" onkeydown="if(event.key === 'Enter' || event.key === ' ') toggleSidebar()">×</div>
             <h3>Menu</h3>
             <ul>
-                <li onclick="window.location.href='/'">Home</li>
-                <li onclick="toggleHistory()">Chat History</li>
-                <li onclick="window.location.href='/logout'">Logout</li>
+                <li onclick="window.location.href='/'" tabindex="0" onkeydown="if(event.key === 'Enter') window.location.href='/'">Home</li>
+                <li onclick="toggleHistory()" tabindex="0" onkeydown="if(event.key === 'Enter') toggleHistory()" aria-controls="historySection">Chat History</li>
+                <li onclick="window.location.href='/logout'" tabindex="0" onkeydown="if(event.key === 'Enter') window.location.href='/logout'">Logout</li>
             </ul>
         </div>
-        <div class="chat-content">
-            <div class="chat-box" id="chatBox"></div>
+        <div class="chat-content" id="chatContent">
+            <div class="chat-box" id="chatBox">
+                <div class="welcome-text" onclick="startChat()" tabindex="0" onkeydown="if(event.key === 'Enter') startChat()">Click or press Enter to start chatting with Harsha's Chatbot!</div>
+            </div>
             <div class="history-section" id="historySection">
                 <div class="history-list" id="historyList"></div>
             </div>
         </div>
-        <div class="input-area">
-            <input type="text" id="userInput" placeholder="Type your message...">
-            <button onclick="sendMessage()">Send</button>
-            <button class="toggle-history" onclick="toggleHistory()">View History</button>
+        <div class="input-area" id="inputArea">
+            <input type="text" id="userInput" placeholder="Type your message..." aria-label="Chat input">
+            <button onclick="sendMessage()" aria-label="Send message">Send</button>
         </div>
     </div>
 
@@ -225,10 +270,38 @@
         const historySection = document.getElementById('historySection');
         const historyList = document.getElementById('historyList');
         const sidebar = document.getElementById('sidebar');
+        const chatWrapper = document.getElementById('chatWrapper');
+        const chatContent = document.getElementById('chatContent');
+        const inputArea = document.getElementById('inputArea');
+        const userInfo = document.getElementById('userInfo');
         let userId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+        let isChatStarted = false;
+
+        function updateUserInfo() {
+            if (sessionStorage.getItem('username')) {
+                const username = sessionStorage.getItem('username');
+                userInfo.innerHTML = `<div class="user-icon" tabindex="0" aria-label="User profile for ${username}" onkeydown="if(event.key === 'Enter') alert('Profile: ${username}')">U</div><span>${username}</span>`;
+            } else if (localStorage.getItem('username')) {
+                const username = localStorage.getItem('username');
+                userInfo.innerHTML = `<div class="user-icon" tabindex="0" aria-label="User profile for ${username}" onkeydown="if(event.key === 'Enter') alert('Profile: ${username}')">U</div><span>${username}</span>`;
+            }
+        }
 
         function toggleSidebar() {
             sidebar.classList.toggle('active');
+            chatWrapper.classList.toggle('menu-open');
+            chatContent.classList.toggle('menu-open');
+            inputArea.classList.toggle('menu-open');
+            if (!sidebar.classList.contains('active')) {
+                historySection.classList.remove('active');
+            }
+        }
+
+        function startChat() {
+            isChatStarted = true;
+            chatBox.removeChild(chatBox.querySelector('.welcome-text'));
+            addMessage("Hello! I'm Harsha's Chatbot. How can I assist you today?", false);
+            userInput.focus();
         }
 
         function addMessage(message, isUser = false) {
@@ -237,7 +310,7 @@
             msgDiv.textContent = message;
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
-            saveMessage(userId, message, isUser);
+            if (isUser) saveMessage(userId, message, isUser);
             animateMessage(msgDiv);
         }
 
@@ -287,10 +360,9 @@
 
         function sendMessage() {
             const message = userInput.value.trim();
-            if (message) {
+            if (message && isChatStarted) {
                 addMessage(message, true);
                 userInput.value = '';
-
                 fetch('/get_response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -302,6 +374,8 @@
                     addMessage('Error: Could not get response.', true);
                     console.error('Error:', error);
                 });
+            } else if (!isChatStarted) {
+                startChat();
             }
         }
 
@@ -316,10 +390,35 @@
             if (e.key === 'Enter') sendMessage();
         });
 
+        document.addEventListener('click', function(e) {
+            if (!sidebar.contains(e.target) && !e.target.classList.contains('menu-toggle')) {
+                sidebar.classList.remove('active');
+                chatWrapper.classList.remove('menu-open');
+                chatContent.classList.remove('menu-open');
+                inputArea.classList.remove('menu-open');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (sidebar.classList.contains('active') && e.key === 'Tab') {
+                const focusable = sidebar.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+
         if (sessionStorage.getItem('userId')) {
             userId = sessionStorage.getItem('userId');
             sessionStorage.removeItem('userId');
             localStorage.setItem('userId', userId);
+            updateUserInfo();
         }
     </script>
 </body>
