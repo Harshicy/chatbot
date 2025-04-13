@@ -5,476 +5,233 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Harsha's Chatbot</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body {
-            background: url('https://images.unsplash.com/photo-1519750783826-e2420f4d6870?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed; /* Aesthetic grey image */
-            background-size: cover;
-            background-color: #e0e0e0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            animation: bgFade 10s infinite ease-in-out;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            overflow-x: hidden;
         }
-        @keyframes bgFade { 0% { filter: brightness(0.9); } 50% { filter: brightness(1.1); } 100% { filter: brightness(0.9); } }
-        .logo {
+        #logo {
             position: fixed;
-            top: 20px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 3em;
-            color: #1a73e8;
+            font-size: 40px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            animation: pulse 2s infinite;
-            z-index: 100;
+            color: #1da1f2;
+            z-index: 1000;
         }
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            50% { transform: translateX(-50%) scale(1.1); }
-            100% { transform: translateX(-50%) scale(1); }
+        #chat-container {
+            max-width: 800px;
+            margin: 60px auto 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            height: calc(100vh - 100px);
+            overflow-y: auto;
         }
-        .chat-wrapper {
-            width: 100%;
-            max-width: 1000px;
-            height: 90vh;
-            display: flex;
-            flex-direction: column;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            animation: slideUp 0.7s ease-out;
-            position: relative;
-            transition: transform 0.5s ease;
-        }
-        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .chat-wrapper.menu-open { transform: translateX(250px); }
-        @media (max-width: 600px) {
-            .chat-wrapper.menu-open { transform: translateX(0); width: 100%; }
-        }
-        .user-info {
-            position: absolute;
+        #profile-icon {
+            position: fixed;
             top: 10px;
-            left: 10px;
-            display: flex;
-            align-items: center;
-            z-index: 20;
-        }
-        .user-icon {
+            right: 10px;
             width: 40px;
             height: 40px;
-            background: #1a73e8;
+            background: #1da1f2;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2em;
             cursor: pointer;
-            outline: none;
-            transition: transform 0.3s;
-            margin-right: 10px;
-        }
-        .user-icon:hover, .user-icon:focus { transform: scale(1.1); }
-        .user-info span { color: #1a73e8; font-weight: 500; }
-        .menu-toggle {
-            position: absolute;
-            top: 10px;
-            left: 60px;
-            width: 50px;
-            height: 50px;
-            background: #1e3c72;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            text-align: center;
+            line-height: 40px;
             color: white;
-            font-size: 1.5em;
-            cursor: pointer;
-            z-index: 20;
-            outline: none;
-            transition: transform 0.3s, background 0.3s;
+            z-index: 1000;
         }
-        .menu-toggle:hover, .menu-toggle:focus { transform: rotate(90deg); background: #1557b0; }
-        .profile-menu {
-            position: absolute;
-            top: 60px;
-            left: 10px;
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            display: none;
-            z-index: 20;
-            min-width: 150px;
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .profile-menu.active { display: block; }
-        .profile-menu ul { list-style: none; }
-        .profile-menu ul li {
-            padding: 10px 20px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        .profile-menu ul li:hover { background: #f0f0f0; }
-        .sidebar {
-            width: 250px;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
+        #sidebar {
             position: fixed;
             top: 0;
+            left: -250px;
+            width: 250px;
+            height: 100%;
+            background: #333;
+            color: white;
+            transition: 0.3s;
+            padding-top: 60px;
+            z-index: 999;
+        }
+        #sidebar.active {
             left: 0;
-            height: 100vh;
-            transform: translateX(-100%);
-            transition: transform 0.5s ease;
-            z-index: 15;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.2);
         }
-        .sidebar.active { transform: translateX(0); }
-        .sidebar h3 { margin-bottom: 20px; animation: fadeIn 1s; }
-        .sidebar ul { list-style: none; }
-        .sidebar ul li {
-            padding: 10px;
-            cursor: pointer;
-            outline: none;
-            animation: slideInLeft 0.5s ease backwards;
+        #sidebar ul {
+            list-style: none;
+            padding: 0;
         }
-        .sidebar ul li:hover { background: rgba(255, 255, 255, 0.1); border-radius: 5px; }
-        @keyframes slideInLeft { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        .chat-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            transition: transform 0.5s ease;
-        }
-        .chat-content.menu-open { transform: translateX(250px); }
-        @media (max-width: 600px) {
-            .chat-content.menu-open { transform: translateX(0); width: 100%; }
-        }
-        .chat-box {
-            flex: 1;
-            overflow-y: auto;
-            padding: 25px;
-            background: linear-gradient(to bottom, #f0f4f8, #e0e7f0);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            justify-content: center;
-            align-items: center;
-        }
-        .hello-message {
-            text-align: center;
-            font-size: 1.5em;
-            color: #1a73e8;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 10px;
-            animation: fadeInUp 1s ease-out;
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .history-section {
+        #sidebar ul li {
             padding: 15px;
-            background: #ffffff;
-            border-top: 1px solid #ddd;
-            display: none;
-            overflow-y: auto;
-            max-height: 70vh;
-        }
-        .history-section.active { display: block; }
-        .history-list {
-            max-height: 100%;
-            overflow-y: auto;
-            padding: 10px;
-            background: #f9f9f9;
-            border-radius: 10px;
-        }
-        .history-item {
-            padding: 8px;
-            margin: 5px 0;
-            background: #fff;
-            border-left: 4px solid #2a5298;
-            border-radius: 5px;
-            animation: slideIn 0.5s ease-out;
             cursor: pointer;
         }
-        .history-item:hover { background: #e0e0e0; }
-        @keyframes slideIn {
-            from { transform: translateX(-10px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        #sidebar ul li:hover {
+            background: #555;
+        }
+        #chat-messages {
+            margin-bottom: 20px;
         }
         .message {
-            max-width: 65%;
-            padding: 12px 18px;
-            border-radius: 18px;
-            margin: 8px 0;
-            font-size: 1.1em;
-            line-height: 1.5;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            animation: messageFade 0.3s ease-out;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 70%;
         }
-        @keyframes messageFade {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
+        .user-message {
+            background: #e1f5fe;
+            margin-left: 30%;
         }
-        .bot-message { background: #e3f2fd; align-self: flex-start; }
-        .user-message { background: #d1e7dd; align-self: flex-end; text-align: right; }
-        .input-area {
-            padding: 15px;
-            background: #ffffff;
-            border-top: 1px solid #ddd;
+        .bot-message {
+            background: #f5f5f5;
+            margin-right: 30%;
+        }
+        #input-container {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            transition: transform 0.5s ease;
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
         }
-        .input-area.menu-open { transform: translateX(250px); }
-        @media (max-width: 600px) {
-            .input-area.menu-open { transform: translateX(0); width: 100%; }
-        }
-        .input-area input {
+        #message-input {
             flex: 1;
-            max-width: 80%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 25px;
-            outline: none;
-            font-size: 1em;
-            transition: border-color 0.3s, transform 0.3s;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px 0 0 5px;
         }
-        .input-area input:focus {
-            border-color: #1a73e8;
-            transform: scale(1.02);
-        }
-        .input-area button {
-            padding: 12px 25px;
-            background: linear-gradient(90deg, #1e3c72, #2a5298);
+        #send-button {
+            padding: 10px 20px;
+            background: #1da1f2;
             color: white;
             border: none;
-            border-radius: 25px;
+            border-radius: 0 5px 5px 0;
             cursor: pointer;
-            font-size: 1em;
-            transition: transform 0.2s, background 0.3s;
-            margin-left: 10px;
         }
-        .input-area button:hover {
-            transform: scale(1.05);
-            background: linear-gradient(90deg, #1557b0, #1e3c72);
+        #send-button:hover {
+            background: #1991e6;
+        }
+        @media (max-width: 600px) {
+            #chat-container {
+                margin: 60px 10px 0;
+                width: calc(100% - 20px);
+            }
+            .message {
+                max-width: 90%;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="logo">H</div>
-    <div class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu" tabindex="0" onkeydown="if(event.key === 'Enter' || event.key === ' ') toggleSidebar()">☰</div>
-    <div class="user-info" id="userInfo"></div>
-    <div class="profile-menu" id="profileMenu">
+    <div id="logo">H</div>
+    <div id="profile-icon" onclick="toggleSidebar()">☰</div>
+    <div id="sidebar">
         <ul>
-            <li onclick="window.location.href='/settings'" tabindex="0" onkeydown="if(event.key === 'Enter') window.location.href='/settings'">Account Settings</li>
-            <li onclick="logout()" tabindex="0" onkeydown="if(event.key === 'Enter') logout()">Logout</li>
+            <li>New Chat</li>
+            <li>Chat History</li>
+            <li>Settings</li>
+            <li>Logout</li>
         </ul>
     </div>
-    <div class="chat-wrapper" id="chatWrapper">
-        <div class="sidebar" id="sidebar" role="navigation" aria-label="Main menu">
-            <h3>Chats</h3>
-            <ul id="chatList"></ul>
-            <li onclick="newChat()" tabindex="0" onkeydown="if(event.key === 'Enter') newChat()">New Chat</li>
-        </div>
-        <div class="chat-content" id="chatContent">
-            <div class="chat-box" id="chatBox">
-                <div class="hello-message">{% set hello_messages = ["Hello! Welcome to Harsha's Chatbot!", "Hi there! Let’s chat!", "Hey! I’m here to help!", "Greetings! Ready to talk?"] %}{{ hello_messages | random }}</div>
-            </div>
-            <div class="history-section" id="historySection">
-                <div class="history-list" id="historyList"></div>
-            </div>
-        </div>
-        <div class="input-area" id="inputArea">
-            <input type="text" id="userInput" placeholder="Type your message..." aria-label="Chat input">
-            <button onclick="sendMessage()" aria-label="Send message">Send</button>
+    <div id="chat-container">
+        <div id="chat-messages"></div>
+        <div id="input-container">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button id="send-button">Send</button>
         </div>
     </div>
 
     <script>
-        const chatBox = document.getElementById('chatBox');
-        const userInput = document.getElementById('userInput');
-        const historySection = document.getElementById('historySection');
-        const historyList = document.getElementById('historyList');
         const sidebar = document.getElementById('sidebar');
-        const chatWrapper = document.getElementById('chatWrapper');
-        const chatContent = document.getElementById('chatContent');
-        const inputArea = document.getElementById('inputArea');
-        const userInfo = document.getElementById('userInfo');
-        const profileMenu = document.getElementById('profileMenu');
-        const chatList = document.getElementById('chatList');
-        let userId = "{{ user_id }}";
-        let username = "{{ username }}";
-        let currentChatId = "{{ current_chat_id }}";
-        let isChatStarted = true;
-
-        function updateUserInfo() {
-            if (username) {
-                const firstLetter = username.charAt(0).toUpperCase();
-                userInfo.innerHTML = `<div class="user-icon" tabindex="0" aria-label="User profile for ${username}" onclick="toggleProfileMenu()" onkeydown="if(event.key === 'Enter') toggleProfileMenu()">${firstLetter}</div><span>${username}</span>`;
-            }
-        }
-
-        function toggleProfileMenu() {
-            profileMenu.classList.toggle('active');
-        }
+        const userId = "{{ user_id }}";
+        const currentChatId = "{{ current_chat_id }}";
+        let chatId = currentChatId;
 
         function toggleSidebar() {
             sidebar.classList.toggle('active');
-            chatWrapper.classList.toggle('menu-open');
-            chatContent.classList.toggle('menu-open');
-            inputArea.classList.toggle('menu-open');
-            if (sidebar.classList.contains('active')) {
-                loadChatList();
-            } else {
-                historySection.classList.remove('active');
-            }
         }
 
-        function loadChatList() {
-            fetch(`/get_history?userId=${encodeURIComponent(userId)}`)
+        function loadHistory() {
+            fetch(`/get_history?chatId=${chatId}`)
                 .then(response => response.json())
                 .then(data => {
-                    chatList.innerHTML = '';
-                    data.chatIds.forEach(chatId => {
-                        const li = document.createElement('li');
-                        li.classList.add('history-item');
-                        li.textContent = `Chat ${chatId.split('_').pop()}`;
-                        li.onclick = () => loadChat(chatId);
-                        li.onkeydown = (e) => { if (e.key === 'Enter') loadChat(chatId); };
-                        li.setAttribute('tabindex', '0');
-                        chatList.appendChild(li);
+                    const messages = document.getElementById('chat-messages');
+                    messages.innerHTML = '';
+                    data.history.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = `message ${msg.isUser ? 'user-message' : 'bot-message'}`;
+                        div.textContent = msg.message;
+                        messages.appendChild(div);
                     });
-                })
-                .catch(error => console.error('Chat list load failed:', error));
-        }
-
-        function loadChat(chatId) {
-            currentChatId = chatId;
-            sessionStorage.setItem('currentChatId', chatId);
-            fetch(`/get_history?userId=${encodeURIComponent(userId)}&chatId=${encodeURIComponent(chatId)}`)
-                .then(response => response.json())
-                .then(data => {
-                    chatBox.innerHTML = '<div class="hello-message">{% set hello_messages = ["Hello! Welcome to Harsha\'s Chatbot!", "Hi there! Let’s chat!", "Hey! I’m here to help!", "Greetings! Ready to talk?"] %}{{ hello_messages | random }}</div>';
-                    data.history.forEach(item => addMessage(item.message, item.isUser));
-                    historySection.classList.remove('active');
-                    sidebar.classList.remove('active');
-                    chatWrapper.classList.remove('menu-open');
-                    chatContent.classList.remove('menu-open');
-                    inputArea.classList.remove('menu-open');
-                })
-                .catch(error => console.error('Chat load failed:', error));
-        }
-
-        function newChat() {
-            currentChatId = `chat_${userId}_${Date.now()}`;
-            sessionStorage.setItem('currentChatId', currentChatId);
-            chatBox.innerHTML = '<div class="hello-message">{% set hello_messages = ["Hello! Welcome to Harsha\'s Chatbot!", "Hi there! Let’s chat!", "Hey! I’m here to help!", "Greetings! Ready to talk?"] %}{{ hello_messages | random }}</div>';
-            sidebar.classList.remove('active');
-            chatWrapper.classList.remove('menu-open');
-            chatContent.classList.remove('menu-open');
-            inputArea.classList.remove('menu-open');
-        }
-
-        function addMessage(message, isUser = false) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
-            msgDiv.textContent = message;
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            if (isUser) saveMessage(userId, message, isUser, currentChatId);
-        }
-
-        function saveMessage(userId, message, isUser, chatId) {
-            fetch('/save_message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `userId=${encodeURIComponent(userId)}&message=${encodeURIComponent(message)}&isUser=${isUser}&chatId=${encodeURIComponent(chatId)}`
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.status === 'OK') currentChatId = data.chatId;
-              })
-              .catch(error => console.error('Save failed:', error));
+                    messages.scrollTop = messages.scrollHeight;
+                });
         }
 
         function sendMessage() {
-            const message = userInput.value.trim();
-            if (message && isChatStarted) {
-                addMessage(message, true);
-                userInput.value = '';
-                fetch('/get_response', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `message=${encodeURIComponent(message)}&userId=${encodeURIComponent(userId)}`
-                })
-                .then(response => response.text())
-                .then(data => addMessage(data))
-                .catch(error => {
-                    addMessage('Error: Could not get response.', false);
-                    console.error('Error:', error);
-                });
-            }
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const messages = document.getElementById('chat-messages');
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user-message';
+            userDiv.textContent = message;
+            messages.appendChild(userDiv);
+
+            fetch('/get_response', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `message=${encodeURIComponent(message)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                const botDiv = document.createElement('div');
+                botDiv.className = 'message bot-message';
+                botDiv.textContent = data;
+                messages.appendChild(botDiv);
+                messages.scrollTop = messages.scrollHeight;
+            });
+
+            input.value = '';
+            saveMessage(message, true);
         }
 
-        function toggleHistory() {
-            historySection.classList.toggle('active');
-            if (historySection.classList.contains('active')) {
-                loadChat(currentChatId);
-            }
+        function saveMessage(message, isUser) {
+            fetch('/save_message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `message=${encodeURIComponent(message)}&isUser=${isUser}&chatId=${chatId}`
+            });
         }
 
-        function logout() {
-            fetch('/logout', { method: 'GET' })
-                .then(() => window.location.href = '/login');
-        }
-
-        userInput.addEventListener('keypress', function(e) {
+        document.getElementById('send-button').addEventListener('click', sendMessage);
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
 
-        document.addEventListener('click', function(e) {
-            if (!sidebar.contains(e.target) && !e.target.classList.contains('menu-toggle') && !userInfo.contains(e.target)) {
-                sidebar.classList.remove('active');
-                chatWrapper.classList.remove('menu-open');
-                chatContent.classList.remove('menu-open');
-                inputArea.classList.remove('menu-open');
-                profileMenu.classList.remove('active');
-            }
-        });
+        // Load initial history
+        loadHistory();
 
-        document.addEventListener('keydown', function(e) {
-            if (sidebar.classList.contains('active') && e.key === 'Tab') {
-                const focusable = sidebar.querySelectorAll('button, [tabindex]:not([tabindex="-1"])');
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
+        // Sidebar event listeners
+        document.querySelectorAll('#sidebar ul li').forEach(item => {
+            item.addEventListener('click', () => {
+                if (item.textContent === 'New Chat') {
+                    chatId = `chat_${userId}_${Date.now()}`;
+                    loadHistory();
+                } else if (item.textContent === 'Chat History') {
+                    // Implement history selection UI
+                    alert('Chat History feature coming soon!');
+                } else if (item.textContent === 'Settings') {
+                    window.location.href = '/settings';
+                } else if (item.textContent === 'Logout') {
+                    window.location.href = '/logout';
                 }
-            }
+                toggleSidebar();
+            });
         });
-
-        window.onload = function() {
-            updateUserInfo();
-            currentChatId = sessionStorage.getItem('currentChatId') || currentChatId;
-            loadChat(currentChatId);
-        };
     </script>
 </body>
 </html>
