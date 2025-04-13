@@ -8,8 +8,18 @@ import json
 import re
 import logging
 from cryptography.fernet import Fernet
-from bs4 import BeautifulSoup  # For HTML parsing (install: pip install beautifulsoup4)
-import requests  # For web requests (install: pip install requests)
+from bs4 import BeautifulSoup
+import requests
+from dotenv import load_dotenv
+
+# Load environment variables with explicit path and override
+load_dotenv('.env', override=True)
+API_KEY = os.getenv("WEATHER_API_KEY")
+print(f"API_KEY loaded: {API_KEY}")  # Debug statement
+print(f"Current working directory: {os.getcwd()}")  # Debug working directory
+print(f"All env vars: {dict(os.environ)}")  # Debug all environment variables
+if not API_KEY:
+    print("Warning: API_KEY is not set. Check .env file format or permissions.")
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
@@ -45,17 +55,18 @@ else:
 
 def web_search(query):
     try:
-        # Simulate AI-driven search with a real API (e.g., Google Custom Search or WeatherAPI)
+        if not API_KEY:
+            return "API key not configured. Please encrypt and set it up securely."
         if "weather" in query.lower():
             location = re.search(r"where (.*)\?", query) or re.search(r"in (.*)", query)
             if location:
                 city = location.group(1).strip()
-                url = f"http://api.weatherapi.com/v1/current.json?key=YOUR_API_KEY&q={city}&aqi=no"
+                url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={city}&aqi=no"
                 response = requests.get(url)
                 if response.status_code == 200:
                     data = response.json()
                     return f"Current weather in {city}: {data['current']['temp_c']}°C, {data['current']['condition']['text']}."
-                return f"Could not fetch weather for {city}. Please check the location or try again later."
+                return f"Could not fetch weather for {city}. Please check the location or try again later (Status: {response.status_code})."
         elif "great wall of china" in query.lower():
             url = "https://en.wikipedia.org/wiki/Great_Wall_of_China"
             response = requests.get(url)
@@ -63,8 +74,7 @@ def web_search(query):
             paragraph = soup.find('p')
             return paragraph.text[:200] + "..." if paragraph else "The Great Wall of China is a historic fortification built to protect against invasions, stretching over 21,000 km."
         else:
-            # General search (placeholder)
-            return f"I’m searching for {query}. Based on available data: [Simulated result - integrate a real API like Google Custom Search]."
+            return f"I’m searching for {query}. Based on available data: [Simulated result - integrate a real API]."
     except Exception as e:
         logger.error(f"Web search error: {e}")
         return f"Error fetching data for {query}. Please try again."
@@ -84,7 +94,7 @@ def process_query(message):
             # Check adaptive knowledge base
             for category, responses in knowledge_base.items():
                 if category in message:
-                    return random.choice(responses) if responses else "I’m learning about this. Please provide more info!"
+                    return responses[0] if responses else "I’m learning about this. Please provide more info!"
             # Learn new information
             if not any(cat in message for cat in knowledge_base.keys()):
                 return "I don’t know yet. Please tell me the answer, and I’ll learn it!"
