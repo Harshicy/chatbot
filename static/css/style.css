@@ -8,25 +8,15 @@
 
 body {
     overflow: hidden;
-    background: url('C:/Users/harsh/Downloads/chatbot/static/images/tech-bg.jpg') no-repeat center center fixed;
+    background: url('../images/tech-bg.jpg') no-repeat center center fixed;
     background-size: cover;
     transition: background-image 1s ease;
 }
 
-/* Specific Body Class for Login */
-.login-body {
-    background: url('C:/Users/harsh/Downloads/chatbot/static/images/office-bg.jpg') no-repeat center center fixed !important;
+/* Static Background for Login */
+.login-static {
+    background: url('../images/office-bg.jpg') no-repeat center center fixed !important;
     background-size: cover;
-}
-
-/* Background Animation */
-@keyframes bgFade {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-}
-
-.bg-animated {
-    animation: bgFade 1s ease-in-out;
 }
 
 /* Login Page */
@@ -36,7 +26,9 @@ body {
     align-items: center;
     height: 100vh;
     background: rgba(0, 0, 0, 0.3); /* Slight overlay for contrast */
-    animation: fadeInZoom 2s ease-in-out infinite alternate;
+    /* Removed fadeInZoom animation */
+    position: relative;
+    z-index: 1; /* Ensure it stays above background */
 }
 
 .login-box {
@@ -46,30 +38,18 @@ body {
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
     width: 400px;
     text-align: center;
-    animation: bounceIn 1.5s ease-out forwards;
+    /* Removed bounceIn animation */
+    z-index: 2; /* Ensure login box is above container overlay */
 }
 
-@keyframes fadeInZoom {
-    0% { transform: scale(1); opacity: 0.8; }
-    100% { transform: scale(1.05); opacity: 1; }
-}
-
-@keyframes bounceIn {
-    0% { transform: scale(0.5); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-.login-box h2 {
+.login-box #login-title,
+.login-box #login-title * {
     margin-bottom: 1.5rem;
     color: #333;
-    animation: rotatePulse 2s infinite;
-}
-
-@keyframes rotatePulse {
-    0% { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(5deg) scale(1.05); }
-    100% { transform: rotate(0deg) scale(1); }
+    animation: none !important; /* Strongest specificity */
+    -webkit-animation: none !important;
+    -moz-animation: none !important;
+    -o-animation: none !important;
 }
 
 .login-box input {
@@ -82,22 +62,11 @@ body {
     animation: slideRight 1s ease forwards;
 }
 
-@keyframes slideRight {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
-}
-
 .login-box input:focus {
     border-color: #007bff;
     outline: none;
     box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
     animation: pulseFocus 0.5s;
-}
-
-@keyframes pulseFocus {
-    0% { box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); }
-    50% { box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); }
-    100% { box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); }
 }
 
 .login-box button {
@@ -112,28 +81,25 @@ body {
     animation: fadeInUp 1s ease forwards;
 }
 
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 .login-box button:hover {
     background: #0056b3;
     transform: scale(1.1) rotate(2deg);
+}
+
+.login-box a {
+    color: #6a0dad; /* Purple for Register link */
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.login-box a:hover {
+    color: #4a0082; /* Darker purple on hover */
 }
 
 .error {
     color: red;
     margin-top: 1rem;
     animation: shake 0.5s forwards;
-}
-
-@keyframes shake {
-    0% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    50% { transform: translateX(5px); }
-    75% { transform: translateX(-5px); }
-    100% { transform: translateX(0); }
 }
 
 /* Register Page */
@@ -143,8 +109,9 @@ body {
     align-items: center;
     height: 100vh;
     background: url('../images/nature-bg.jpg') no-repeat center center fixed;
-    background-size: cover;
-    animation: fadeInZoom 2s ease-in-out infinite alternate;
+    /* Removed fadeInZoom animation */
+    position: relative;
+    z-index: 1; /* Ensure it stays above background */
 }
 
 .register-box {
@@ -154,13 +121,18 @@ body {
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
     width: 400px;
     text-align: center;
-    animation: bounceIn 1.5s ease-out;
+    /* Removed bounceIn animation */
+    z-index: 2; /* Ensure register box is above container overlay */
 }
 
-.register-box h2 {
+.register-box #register-title,
+.register-box #register-title * {
     margin-bottom: 1.5rem;
     color: #333;
-    animation: rotatePulse 2s infinite;
+    animation: none !important; /* Strongest specificity */
+    -webkit-animation: none !important;
+    -moz-animation: none !important;
+    -o-animation: none !important;
 }
 
 .register-box input {
@@ -170,7 +142,7 @@ body {
     border: 1px solid #ddd;
     border-radius: 5px;
     transition: all 0.3s ease;
-    animation: slideRight 1s ease;
+    animation: slideRight 1s ease forwards;
 }
 
 .register-box input:focus {
@@ -189,7 +161,7 @@ body {
     border-radius: 5px;
     cursor: pointer;
     transition: all 0.3s ease;
-    animation: fadeInUp 1s ease;
+    animation: fadeInUp 1s ease forwards;
 }
 
 .register-box button:hover {
@@ -361,4 +333,45 @@ body {
 
 .input-container button.send:hover {
     background: #0056b3;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+@keyframes fadeInZoom {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideRight {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+@keyframes pulseFocus {
+    0% { box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); }
+    50% { box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); }
+    100% { box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
 }

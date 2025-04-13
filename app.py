@@ -12,18 +12,27 @@ from bs4 import BeautifulSoup
 import requests
 from dotenv import load_dotenv
 
-# Load environment variables with explicit path and override
-load_dotenv('.env', override=True)
-API_KEY = os.getenv("WEATHER_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Optional: Add OpenAI API key
-print(f"API_KEY loaded: {API_KEY is not None}, OPENAI_API_KEY loaded: {OPENAI_API_KEY is not None}")      # Debug statement
+# Initialize logging
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
-logger.debug(f"API_KEY from environment: {API_KEY is not None}, OPENAI_API_KEY: {OPENAI_API_KEY is not None}")
+
+# Load environment variables
+load_dotenv('.env', override=True)
+API_KEY = os.getenv("WEATHER_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+ZAPIER_WEBHOOK_URL = os.getenv("ZAPIER_WEBHOOK_URL")
+
+logger.debug(f"API_KEY: {API_KEY is not None}, OPENAI_API_KEY: {OPENAI_API_KEY is not None}, "
+             f"NEWSAPI_KEY: {NEWSAPI_KEY is not None}, ZAPIER_WEBHOOK_URL: {ZAPIER_WEBHOOK_URL is not None}")
 if not API_KEY:
-    logger.error("API_KEY is not set. Check Render environment variables.")
-if OPENAI_API_KEY and not API_KEY:
-    logger.warning("WEATHER_API_KEY missing, but OPENAI_API_KEY present. Proceeding with AI fallback.")
+    logger.error("WEATHER_API_KEY is not set.")
+if not OPENAI_API_KEY:
+    logger.warning("OPENAI_API_KEY is not set. OpenAI features may not work.")
+if not NEWSAPI_KEY:
+    logger.error("NEWSAPI_KEY is not set.")
+if not ZAPIER_WEBHOOK_URL:
+    logger.error("ZAPIER_WEBHOOK_URL is not set.")
 
 # Set up NLTK
 nltk_data_path = os.path.join(os.getcwd(), 'nltk_data')
@@ -37,10 +46,24 @@ try:
 except Exception as e:
     logger.error(f"NLTK download failed: {e}")
 
+# Initialize Google Translator (using googletrans==3.1.0a0)
+from googletrans import Translator
+translator = Translator()
+
+# Optional OpenAI import
+try:
+    import openai
+    openai.api_key = OPENAI_API_KEY
+    openai_available = bool(openai and OPENAI_API_KEY)
+except ImportError:
+    openai = None
+    openai_available = False
+    logger.warning("OpenAI module not found. AI features will use fallback responses.")
+
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.secret_key = os.urandom(24)
 
-# Knowledge base for adaptive learning
+# Knowledge base
 KNOWLEDGE_BASE_FILE = 'knowledge_base.json'
 if os.path.exists(KNOWLEDGE_BASE_FILE):
     with open(KNOWLEDGE_BASE_FILE, 'r') as f:
@@ -63,8 +86,8 @@ def web_search(query):
                 if response.status_code == 200:
                     data = response.json()
                     return f"Current weather in {city}: {data['current']['temp_c']}°C, {data['current']['condition']['text']}."
-                logger.error(f"Weather API failed for {city}: Status {response.status_code}")
-                return f"Could not fetch weather for {city}. Please check the location or try again later."
+                logger.error(f"Weather API failed for {city}: {response.status_code}")
+                return f"Could not fetch weather for {city}. Try again later."
             return "Please specify a city (e.g., 'weather in London')."
         elif "great wall of china" in query.lower():
             url = "https://en.wikipedia.org/wiki/Great_Wall_of_China"
@@ -73,13 +96,13 @@ def web_search(query):
             paragraph = soup.find('p')
             return paragraph.text[:200] + "..." if paragraph else "The Great Wall of China is a historic fortification built to protect against invasions, stretching over 21,000 km."
         else:
-            return f"I’m searching for {query}. Based on available data: [Simulated result - integrate a real API]."
+            return f"Searching for {query}. [Simulated result - integrate a real API]."
     except requests.RequestException as e:
         logger.error(f"Web search error: {e}")
-        return f"Error fetching data for {query}. Check your internet connection or try again."
+        return f"Error fetching data for {query}. Check your connection."
     except Exception as e:
         logger.error(f"Unexpected error in web_search: {e}")
-        return f"Error processing your request. Please try again."
+        return "Error processing your request. Try again."
 
 def process_query(message):
     logger.debug(f"Processing query: {message}")
@@ -91,54 +114,86 @@ def process_query(message):
         tokens = nltk.word_tokenize(message)
         tagged = nltk.pos_tag(tokens)
 
-        # Specific query handling
         if "weather" in message:
             return web_search(message)
         elif "great wall of china" in message:
             return web_search(message)
         elif "time" in message:
-            from datetime import datetime
             return f"The current time is {datetime.now().strftime('%H:%M:%S')} on {datetime.now().strftime('%Y-%m-%d')}."
         elif "?" in message:
-            # Check adaptive learning
             for category, responses in knowledge_base.items():
                 if category in message:
-                    return responses[0] if responses else "I’m learning about this. Please provide more info!"
-            # Learn new information
+                    return responses[0] if responses else "I’m learning about this. Provide more info!"
             if not any(cat in message for cat in knowledge_base.keys()):
-                return "I don’t know yet. Please tell me the answer, and I’ll learn it!"
+                return "I don’t know yet. Tell me the answer, and I’ll learn it!"
 
-        # AI-like response generation with NLTK
+        if "news" in message:
+            topic = message.split("news")[1].strip() if "news" in message else "general"
+            if not NEWSAPI_KEY:
+                return "NewsAPI key not configured."
+            url = f"https://newsapi.org/v2/everything?q={topic}&apiKey={NEWSAPI_KEY}"
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "ok" and data.get("articles"):
+                    article = data["articles"][0]
+                    return f"Headline: {article['title']}\nSource: {article['source']['name']}\nURL: {article['url']}"
+                logger.error(f"NewsAPI failed for {topic}: {response.status_code}")
+                return "Couldn’t fetch news."
+            return "Error fetching news. Check your connection."
+
+        if "translate" in message:
+            try:
+                text = message.split("translate")[-1].strip()
+                detected_lang = translator.detect(text).lang
+                translated = translator.translate(text, dest='en' if detected_lang != 'en' else 'es').text
+                return f"Detected: {detected_lang}\nTranslated: {translated}"
+            except Exception as e:
+                logger.error(f"Translation error: {e}")
+                return f"Translation error: {str(e)}"
+
+        if "schedule" in message or "task" in message:
+            if not ZAPIER_WEBHOOK_URL:
+                return "Zapier webhook URL not configured."
+            task = message.replace("schedule", "").replace("task", "").strip() or "New task from chatbot"
+            payload = {"task": task, "date": "tomorrow"}
+            response = requests.post(ZAPIER_WEBHOOK_URL, json=payload, timeout=5)
+            if response.status_code == 200:
+                return f"Task '{task}' scheduled via Zapier!"
+            logger.error(f"Zapier API failed: {response.status_code}")
+            return "Failed to schedule task."
+
         if any(word in message for word in ["hi", "hello", "hey"]):
             return "Hello! How can I assist you today?"
         elif any(word in message for word in ["who are you", "what are you"]):
-            return "I’m Grok 3, built by xAI, an AI designed to provide helpful and truthful answers."
+            return "I’m a chatbot, built by harsha, designed to provide helpful answers."
         elif any(word in ["help", "assist"] for word, pos in tagged if pos.startswith('VB')):
-            return "I can assist with weather, time, or learn new things. Ask me anything!"
+            return "I can assist with weather, time, news, translations, scheduling, or learn new things. Ask me anything!"
         elif any(word in ["bye", "goodbye"] for word in tokens):
-            return "Goodbye! Feel free to return anytime."
-        elif any(pos in ['NN', 'NNS'] for _, pos in tagged):  # Noun detection
-            return f"I see you mentioned {tokens[0]}. Could you provide more context or ask a question about it?"
+            return "Goodbye! Return anytime."
+        elif any(pos in ['NN', 'NNS'] for _, pos in tagged):
+            return f"I see you mentioned {tokens[0]}. Provide more context or ask a question."
         else:
-            return "I’m not sure how to respond. Try 'hi', 'who are you', 'weather in [city]', or teach me something new!"
-
-        # Optional: Integrate OpenAI API if key is available
-        if OPENAI_API_KEY:
-            import openai
-            openai.api_key = OPENAI_API_KEY
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": message}]
-                )
-                return response.choices[0].message['content'].strip()
-            except Exception as e:
-                logger.error(f"OpenAI API error: {e}")
-                return "Error with AI API. Falling back to basic response."
+            if openai and OPENAI_API_KEY:
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",  # Modern chat model
+                        messages=[{"role": "user", "content": message}],
+                        max_tokens=150,
+                        temperature=0.7
+                    )
+                    return response.choices[0].message.content.strip()
+                except openai.error.OpenAIError as e:
+                    logger.error(f"OpenAI API error: {e}")
+                    return "OpenAI API error. Using fallback response."
+                except Exception as e:
+                    logger.error(f"Unexpected OpenAI error: {e}")
+                    return "OpenAI error. Using fallback response."
+            return "I’m not sure how to respond. Try 'hi', 'weather in [city]', 'news about tech', or teach me something."
 
     except Exception as e:
         logger.error(f"Error in process_query: {e}")
-        return "Error processing your question. Please try again."
+        return "Error processing your request. Try again."
 
 def save_learned_knowledge(question, answer):
     category = re.sub(r'\W+', '_', question.split('?')[0].strip())
@@ -170,24 +225,24 @@ def get_user(username):
     return user
 
 def encrypt_credentials(username, password, name=None, email=None):
+    key = Fernet.generate_key()
+    cipher_suite = Fernet(key)
     credentials = {"username": username, "password": password, "name": name, "email": email}
-    credentials_json = json.dumps(credentials).encode()
-    cipher_suite = Fernet(Fernet.generate_key())  # Regenerate key for each encryption
-    encrypted_data = cipher_suite.encrypt(credentials_json)
+    encrypted_data = cipher_suite.encrypt(json.dumps(credentials).encode())
     with open('credentials.enc', 'wb') as f:
         f.write(encrypted_data)
+    with open('key.key', 'wb') as f:
+        f.write(key)
 
 def decrypt_credentials():
-    credentials_file = 'credentials.enc'
-    if not os.path.exists(credentials_file):
+    if not os.path.exists('credentials.enc') or not os.path.exists('key.key'):
         return {}
     try:
-        with open(credentials_file, 'rb') as f:
+        with open('key.key', 'rb') as f:
+            key = f.read()
+        with open('credentials.enc', 'rb') as f:
             encrypted_data = f.read()
-        # Use the same key generation logic (note: this is a simplification; in production, store the key)
-        cipher_suite = Fernet(Fernet.generate_key())
-        decrypted_data = cipher_suite.decrypt(encrypted_data)
-        return json.loads(decrypted_data.decode())
+        return json.loads(Fernet(key).decrypt(encrypted_data).decode())
     except Exception as e:
         logger.error(f"Decryption error: {e}")
         return {}
@@ -217,23 +272,40 @@ def get_chat_history(user_id, chat_id):
     conn.close()
     return history
 
+def delete_chat(user_id, chat_id):
+    conn = sqlite3.connect('chat_history.db', check_same_thread=False)
+    c = conn.cursor()
+    try:
+        c.execute("DELETE FROM chats WHERE user_id = ? AND chat_id = ?", (user_id, chat_id))
+        conn.commit()
+        return {"status": "OK", "message": f"Chat {chat_id} deleted"}
+    except sqlite3.Error as e:
+        logger.error(f"Database error in delete_chat: {e}")
+        return {"status": "Error", "message": str(e)}
+    finally:
+        conn.close()
+
 @app.route("/")
 def home():
     if not session.get('logged_in'):
         credentials = decrypt_credentials()
-        if credentials and 'username' in credentials and 'password' in credentials:
-            username = credentials['username']
-            user = get_user(username)
+        if credentials.get('username') and credentials.get('password'):
+            user = get_user(credentials['username'])
             if user and check_password_hash(user[2], credentials['password']):
                 session['logged_in'] = True
-                session['user_id'] = username
-                session['current_chat_id'] = f"chat_{username}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+                session['user_id'] = credentials['username']
+                session['current_chat_id'] = f"chat_{credentials['username']}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
                 return redirect(url_for('home'))
         return redirect(url_for('login'))
     user_id = session.get('user_id')
-    current_chat_id = session.get('current_chat_id')
+    current_chat_id = session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
     history = get_chat_history(user_id, current_chat_id)
-    return render_template("index.html", logged_in=True, user_id=user_id, username=user_id, current_chat_id=current_chat_id, history=history)
+    conn = sqlite3.connect('chat_history.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT DISTINCT chat_id FROM chats WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
+    chat_ids = [row[0] for row in c.fetchall()]
+    conn.close()
+    return render_template("index.html", logged_in=True, user_id=user_id, current_chat_id=current_chat_id, history=history, chatIds=chat_ids, openai_available=openai_available)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -281,27 +353,26 @@ def register():
 
 @app.route("/get_response", methods=["POST"])
 def get_response_route():
-    logger.debug("get_response route hit")
     if not session.get('logged_in'):
-        logger.warning("User not logged in")
         return "Please log in to chat"
     try:
         user_message = request.form.get("message")
         user_id = session.get('user_id')
         current_chat_id = session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
-        logger.debug(f"Processing message: {user_message}, User ID: {user_id}, Chat ID: {current_chat_id}")
         if not user_message:
-            logger.warning("No message provided")
             return "No message provided"
+        if "new chat" in user_message.lower():
+            current_chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+            session['current_chat_id'] = current_chat_id
+            return "New chat started!"
         response = process_query(user_message)
-        logger.debug(f"Response generated: {response}")
         save_message(user_id, user_message, True, current_chat_id)
         save_message(user_id, response, False, current_chat_id)
         session['current_chat_id'] = current_chat_id
         return response
     except Exception as e:
-        logger.error(f"Exception in get_response_route: {str(e)} with traceback: {str(e.__traceback__)}")
-        return "An error occurred. Please try again."
+        logger.error(f"Exception in get_response_route: {e}")
+        return "An error occurred. Try again."
 
 @app.route("/save_message", methods=["POST"])
 def save_message_route():
@@ -321,7 +392,7 @@ def save_message_route():
         conn.close()
         return jsonify({"status": "OK", "chatId": chat_id})
     except Exception as e:
-        logger.error(f"Error in save_message: {str(e)}")
+        logger.error(f"Error in save_message: {e}")
         return jsonify({"status": "Error", "message": str(e)})
 
 @app.route("/get_history")
@@ -337,10 +408,27 @@ def get_history():
         c.execute("SELECT DISTINCT chat_id FROM chats WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
         chat_ids = [row[0] for row in c.fetchall()]
         conn.close()
-        return jsonify({"history": history, "chatIds": chat_ids})
+        return jsonify({"history": history, "chatIds": chat_ids, "currentChatId": chat_id})
     except Exception as e:
         logger.error(f"Error in get_history: {e}")
         return jsonify({"error": "Failed to load history"})
+
+@app.route("/delete_chat", methods=["POST"])
+def delete_chat_route():
+    if not session.get('logged_in'):
+        return jsonify({"status": "Unauthorized"})
+    try:
+        user_id = session.get('user_id')
+        chat_id = request.form.get("chatId")
+        if not chat_id:
+            return jsonify({"status": "Error", "message": "No chat ID provided"})
+        result = delete_chat(user_id, chat_id)
+        if result["status"] == "OK" and chat_id == session.get('current_chat_id'):
+            session['current_chat_id'] = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in delete_chat_route: {e}")
+        return jsonify({"status": "Error", "message": str(e)})
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
@@ -376,7 +464,7 @@ def learn():
             return jsonify({"status": "OK", "response": response})
         return jsonify({"status": "Error", "message": "Invalid input"})
     except Exception as e:
-        logger.error(f"Error in learn: {str(e)}")
+        logger.error(f"Error in learn: {e}")
         return jsonify({"status": "Error", "message": str(e)})
 
 if __name__ == "__main__":
