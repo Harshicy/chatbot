@@ -16,10 +16,10 @@ from dotenv import load_dotenv
 load_dotenv('.env', override=True)
 API_KEY = os.getenv("WEATHER_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Optional: Add OpenAI API key
-print(f"API_KEY loaded: {API_KEY}, OPENAI_API_KEY loaded: {OPENAI_API_KEY}")  # Debug statement
+print(f"API_KEY loaded: {API_KEY is not None}, OPENAI_API_KEY loaded: {OPENAI_API_KEY is not None}")      # Debug statement
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
-logger.debug(f"API_KEY from environment: {API_KEY}, OPENAI_API_KEY: {OPENAI_API_KEY}")
+logger.debug(f"API_KEY from environment: {API_KEY is not None}, OPENAI_API_KEY: {OPENAI_API_KEY is not None}")
 if not API_KEY:
     logger.error("API_KEY is not set. Check Render environment variables.")
 if OPENAI_API_KEY and not API_KEY:

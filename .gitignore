@@ -5,4 +5,4 @@ __pycache__
 *.pyc
 static/images/*
 app.log
-*.log
+*.log"app.log" 
