@@ -16,7 +16,6 @@ werkzeug==2.3.6
 cryptography==42.0.5
 beautifulsoup4==4.12.2
 requests==2.31.0
-googletrans==3.1.0a0
 python-dotenv==1.0.0  # Add this line
 ibm-watson==9.0.0
 openai==1.73.0
