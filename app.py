@@ -10,7 +10,7 @@ import logging
 from cryptography.fernet import Fernet
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
 
 # Generate a key for Fernet (store securely in production)
@@ -66,16 +66,21 @@ knowledge_base = {
 }
 
 def get_response(message):
+    logger.debug(f"get_response called with message: {message}")
     if not message or not isinstance(message, str):
         logger.warning("Invalid message input")
         return "Please provide a valid message!"
-    message = message.lower().strip()
-    for category, responses in knowledge_base.items():
-        if any(keyword in message for keyword in category.split('_')) or any(word in message for word in category.split()):
-            logger.debug(f"Matched category: {category}")
-            return random.choice(responses)
-    logger.debug("No category matched, using default")
-    return random.choice(knowledge_base["default"])
+    try:
+        message = message.lower().strip()
+        for category, responses in knowledge_base.items():
+            if any(keyword in message for keyword in category.split('_')) or any(word in message for word in category.split()):
+                logger.debug(f"Matched category: {category}")
+                return random.choice(responses)
+        logger.debug("No category matched, using default")
+        return random.choice(knowledge_base["default"])
+    except Exception as e:
+        logger.error(f"Error in get_response logic: {e}")
+        return "Error processing your request."
 
 def init_db():
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
@@ -122,11 +127,15 @@ def save_message(user_id, message, is_user, chat_id=None):
         chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO chats (user_id, chat_id, message, is_user, timestamp) VALUES (?, ?, ?, ?, ?)",
-              (user_id, chat_id, message, is_user, timestamp))
-    conn.commit()
-    conn.close()
+    timestamp = datetime.now().strftime("%Y-%m-d %H:%M:%S")
+    try:
+        c.execute("INSERT INTO chats (user_id, chat_id, message, is_user, timestamp) VALUES (?, ?, ?, ?, ?)",
+                  (user_id, chat_id, message, is_user, timestamp))
+        conn.commit()
+    except sqlite3.Error as e:
+        logger.error(f"Database error in save_message: {e}")
+    finally:
+        conn.close()
     return chat_id
 
 def get_chat_history(user_id, chat_id):
@@ -165,7 +174,7 @@ def login():
             session['logged_in'] = True
             session['user_id'] = username
             session['current_chat_id'] = f"chat_{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            encrypt_credentials(username, password, user[3], user[4])  # Include name and email
+            encrypt_credentials(username, password, user[3], user[4])
             return redirect(url_for('home'))
         return render_template("login.html", error="Invalid username or password")
     return render_template("login.html")
@@ -201,35 +210,39 @@ def register():
 
 @app.route("/get_response", methods=["POST"])
 def get_response_route():
+    logger.debug("get_response route hit")
     if not session.get('logged_in'):
+        logger.warning("User not logged in")
         return "Please log in to chat"
     try:
         user_message = request.form.get("message")
         user_id = session.get('user_id')
         current_chat_id = session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        logger.debug(f"Received message: {user_message}, Chat ID: {current_chat_id}")
-        if user_message:
-            response = get_response(user_message)
-            logger.debug(f"Generated response: {response}")
-            save_message(user_id, user_message, True, current_chat_id)
-            save_message(user_id, response, False, current_chat_id)
-            session['current_chat_id'] = current_chat_id  # Ensure chat ID is persisted
-            return response
-        return "No message provided"
+        logger.debug(f"Processing message: {user_message}, User ID: {user_id}, Chat ID: {current_chat_id}")
+        if not user_message:
+            logger.warning("No message provided")
+            return "No message provided"
+        response = get_response(user_message)
+        logger.debug(f"Response generated: {response}")
+        # Temporarily comment out save_message calls
+        # save_message(user_id, user_message, True, current_chat_id)
+        # save_message(user_id, response, False, current_chat_id)
+        session['current_chat_id'] = current_chat_id
+        return response
     except Exception as e:
-        logger.error(f"Error in get_response: {e}")
+        logger.error(f"Exception in get_response_route: {str(e)} with traceback: {str(e.__traceback__)}")
         return "An error occurred. Please try again."
 
 @app.route("/save_message", methods=["POST"])
 def save_message():
     if not session.get('logged_in'):
-        return "Unauthorized"
+        return jsonify({"status": "Unauthorized"})
     try:
         user_id = session.get('user_id')
         message = request.form.get("message")
         is_user = request.form.get("isUser") == "true"
         chat_id = request.form.get("chatId") or session.get('current_chat_id')
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now().strftime("%Y-%m-d %H:%M:%S")
         conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
         c.execute("INSERT INTO chats (user_id, chat_id, message, is_user, timestamp) VALUES (?, ?, ?, ?, ?)",
@@ -238,7 +251,7 @@ def save_message():
         conn.close()
         return jsonify({"status": "OK", "chatId": chat_id})
     except Exception as e:
-        logger.error(f"Error in save_message: {e}")
+        logger.error(f"Error in save_message: {str(e)}")
         return jsonify({"status": "Error", "message": str(e)})
 
 @app.route("/get_history")
@@ -256,7 +269,7 @@ def get_history():
         conn.close()
         return jsonify({"history": history, "chatIds": chat_ids})
     except Exception as e:
-        logger.error(f"Error in get_history: {e}")
+        logger.error(f"Error in get_history: {str(e)}")
         return jsonify({"error": "Failed to load history"})
 
 @app.route("/settings", methods=["GET", "POST"])
