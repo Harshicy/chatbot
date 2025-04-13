@@ -1,0 +1,359 @@
+/* Reset and General Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+body {
+    overflow: hidden;
+    background: url('../images/tech-bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    transition: background-image 1s ease;
+}
+
+/* Background Animation */
+@keyframes bgFade {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.bg-animated {
+    animation: bgFade 1s ease-in-out;
+}
+
+/* Login Page */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: url('../images/office-bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    animation: fadeInZoom 2s ease-in-out infinite alternate;
+}
+
+.login-box {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    text-align: center;
+    animation: bounceIn 1.5s ease-out;
+}
+
+@keyframes fadeInZoom {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.login-box h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+    animation: rotatePulse 2s infinite;
+}
+
+@keyframes rotatePulse {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(5deg) scale(1.05); }
+    100% { transform: rotate(0deg) scale(1); }
+}
+
+.login-box input {
+    width: 100%;
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    animation: slideRight 1s ease;
+}
+
+@keyframes slideRight {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+.login-box input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+    animation: pulseFocus 0.5s;
+}
+
+@keyframes pulseFocus {
+    0% { box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); }
+    50% { box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); }
+    100% { box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); }
+}
+
+.login-box button {
+    width: 100%;
+    padding: 0.8rem;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: fadeInUp 1s ease;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-box button:hover {
+    background: #0056b3;
+    transform: scale(1.1) rotate(2deg);
+}
+
+.error {
+    color: red;
+    margin-top: 1rem;
+    animation: shake 0.5s;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+/* Register Page */
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: url('../images/nature-bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    animation: fadeInZoom 2s ease-in-out infinite alternate;
+}
+
+.register-box {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+    width: 400px;
+    text-align: center;
+    animation: bounceIn 1.5s ease-out;
+}
+
+.register-box h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+    animation: rotatePulse 2s infinite;
+}
+
+.register-box input {
+    width: 100%;
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    animation: slideRight 1s ease;
+}
+
+.register-box input:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+    animation: pulseFocus 0.5s;
+}
+
+.register-box button {
+    width: 100%;
+    padding: 0.8rem;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: fadeInUp 1s ease;
+}
+
+.register-box button:hover {
+    background: #0056b3;
+    transform: scale(1.1) rotate(2deg);
+}
+
+/* Chatbot Page */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    position: relative; /* For logo positioning */
+}
+
+/* Encrypted "H" Logo */
+.logo {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 3rem;
+    color: #007bff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    animation: encryptEffect 2s infinite;
+    z-index: 10;
+}
+
+@keyframes encryptEffect {
+    0% { opacity: 0.5; transform: translateX(-50%) rotate(0deg) scale(1); }
+    25% { opacity: 1; transform: translateX(-50%) rotate(5deg) scale(1.1); }
+    50% { opacity: 0.5; transform: translateX(-50%) rotate(0deg) scale(1); }
+    75% { opacity: 1; transform: translateX(-50%) rotate(-5deg) scale(1.1); }
+    100% { opacity: 0.5; transform: translateX(-50%) rotate(0deg) scale(1); }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    position: relative; /* Ensure header respects logo */
+}
+
+.menu-icon {
+    font-size: 2rem;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.menu-icon:hover {
+    transform: rotate(90deg);
+}
+
+.profile-icon {
+    font-size: 2rem;
+    background: #007bff;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.profile-icon:hover {
+    background: #0056b3;
+}
+
+/* Sliding Menu */
+.sidebar {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #333;
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 60px;
+    color: white;
+}
+
+.sidebar a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    font-size: 1.2rem;
+    color: white;
+    display: block;
+    transition: 0.3s;
+}
+
+.sidebar a:hover {
+    color: #f1f1f1;
+    transform: translateX(10px);
+}
+
+.closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 2rem;
+    margin-left: 50px;
+}
+
+.chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    margin: 1rem;
+    border-radius: 10px;
+    animation: fadeIn 1.5s ease;
+}
+
+.message {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    border-radius: 5px;
+    animation: slideIn 0.5s ease;
+}
+
+.user-message {
+    background: #007bff;
+    color: white;
+    align-self: flex-end;
+}
+
+.bot-message {
+    background: #e9ecef;
+    color: #333;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.input-container {
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+}
+
+.input-container input[type="text"] {
+    flex: 1;
+    padding: 0.8rem;
+    border: none;
+    border-radius: 5px 0 0 5px;
+    outline: none;
+    font-size: 1rem;
+}
+
+.input-container button.send {
+    padding: 0.8rem;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 0 5px 5px 0;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin-left: -5px; /* Overlap with input */
+}
+
+.input-container button.send:hover {
+    background: #0056b3;
+}

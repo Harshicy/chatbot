@@ -1,2 +1,8 @@
 mychatbot_env/
 nltk_data/
+.env
+__pycache__
+*.pyc
+static/images/*
+app.log
+*.log

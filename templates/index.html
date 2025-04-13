@@ -3,235 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Harsha's Chatbot</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            overflow-x: hidden;
-        }
-        #logo {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 40px;
-            font-weight: bold;
-            color: #1da1f2;
-            z-index: 1000;
-        }
-        #chat-container {
-            max-width: 800px;
-            margin: 60px auto 0;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            height: calc(100vh - 100px);
-            overflow-y: auto;
-        }
-        #profile-icon {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            width: 40px;
-            height: 40px;
-            background: #1da1f2;
-            border-radius: 50%;
-            cursor: pointer;
-            text-align: center;
-            line-height: 40px;
-            color: white;
-            z-index: 1000;
-        }
-        #sidebar {
-            position: fixed;
-            top: 0;
-            left: -250px;
-            width: 250px;
-            height: 100%;
-            background: #333;
-            color: white;
-            transition: 0.3s;
-            padding-top: 60px;
-            z-index: 999;
-        }
-        #sidebar.active {
-            left: 0;
-        }
-        #sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-        #sidebar ul li {
-            padding: 15px;
-            cursor: pointer;
-        }
-        #sidebar ul li:hover {
-            background: #555;
-        }
-        #chat-messages {
-            margin-bottom: 20px;
-        }
-        .message {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 70%;
-        }
-        .user-message {
-            background: #e1f5fe;
-            margin-left: 30%;
-        }
-        .bot-message {
-            background: #f5f5f5;
-            margin-right: 30%;
-        }
-        #input-container {
-            display: flex;
-            position: sticky;
-            bottom: 0;
-            background: white;
-            padding: 10px;
-            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-        }
-        #message-input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px 0 0 5px;
-        }
-        #send-button {
-            padding: 10px 20px;
-            background: #1da1f2;
-            color: white;
-            border: none;
-            border-radius: 0 5px 5px 0;
-            cursor: pointer;
-        }
-        #send-button:hover {
-            background: #1991e6;
-        }
-        @media (max-width: 600px) {
-            #chat-container {
-                margin: 60px 10px 0;
-                width: calc(100% - 20px);
-            }
-            .message {
-                max-width: 90%;
-            }
-        }
-    </style>
+    <title>Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-    <div id="logo">H</div>
-    <div id="profile-icon" onclick="toggleSidebar()">☰</div>
-    <div id="sidebar">
-        <ul>
-            <li>New Chat</li>
-            <li>Chat History</li>
-            <li>Settings</li>
-            <li>Logout</li>
-        </ul>
-    </div>
-    <div id="chat-container">
-        <div id="chat-messages"></div>
-        <div id="input-container">
-            <input type="text" id="message-input" placeholder="Type a message...">
-            <button id="send-button">Send</button>
+<body class="random-bg">
+    <div class="chat-container">
+        <div class="header">
+            <div class="menu-icon">☰</div>
+            <div class="profile-icon"></div>
+        </div>
+        <div class="sidebar">
+            <a href="javascript:void(0)" class="closebtn">&times;</a>
+            <a href="#">Home</a>
+            <a href="/settings">Settings</a>
+            <a href="/logout">Logout</a>
+        </div>
+        <div class="chat-box" id="chat-box">
+            {% for msg in history %}
+                <div class="message {{ 'user-message' if msg.isUser else 'bot-message' }}">
+                    {{ msg.message }}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="input-container">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button class="send">Send</button>
         </div>
     </div>
-
-    <script>
-        const sidebar = document.getElementById('sidebar');
-        const userId = "{{ user_id }}";
-        const currentChatId = "{{ current_chat_id }}";
-        let chatId = currentChatId;
-
-        function toggleSidebar() {
-            sidebar.classList.toggle('active');
-        }
-
-        function loadHistory() {
-            fetch(`/get_history?chatId=${chatId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const messages = document.getElementById('chat-messages');
-                    messages.innerHTML = '';
-                    data.history.forEach(msg => {
-                        const div = document.createElement('div');
-                        div.className = `message ${msg.isUser ? 'user-message' : 'bot-message'}`;
-                        div.textContent = msg.message;
-                        messages.appendChild(div);
-                    });
-                    messages.scrollTop = messages.scrollHeight;
-                });
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            if (!message) return;
-
-            const messages = document.getElementById('chat-messages');
-            const userDiv = document.createElement('div');
-            userDiv.className = 'message user-message';
-            userDiv.textContent = message;
-            messages.appendChild(userDiv);
-
-            fetch('/get_response', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `message=${encodeURIComponent(message)}`
-            })
-            .then(response => response.text())
-            .then(data => {
-                const botDiv = document.createElement('div');
-                botDiv.className = 'message bot-message';
-                botDiv.textContent = data;
-                messages.appendChild(botDiv);
-                messages.scrollTop = messages.scrollHeight;
-            });
-
-            input.value = '';
-            saveMessage(message, true);
-        }
-
-        function saveMessage(message, isUser) {
-            fetch('/save_message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `message=${encodeURIComponent(message)}&isUser=${isUser}&chatId=${chatId}`
-            });
-        }
-
-        document.getElementById('send-button').addEventListener('click', sendMessage);
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        // Load initial history
-        loadHistory();
-
-        // Sidebar event listeners
-        document.querySelectorAll('#sidebar ul li').forEach(item => {
-            item.addEventListener('click', () => {
-                if (item.textContent === 'New Chat') {
-                    chatId = `chat_${userId}_${Date.now()}`;
-                    loadHistory();
-                } else if (item.textContent === 'Chat History') {
-                    // Implement history selection UI
-                    alert('Chat History feature coming soon!');
-                } else if (item.textContent === 'Settings') {
-                    window.location.href = '/settings';
-                } else if (item.textContent === 'Logout') {
-                    window.location.href = '/logout';
-                }
-                toggleSidebar();
-            });
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

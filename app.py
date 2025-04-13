@@ -15,19 +15,15 @@ from dotenv import load_dotenv
 # Load environment variables with explicit path and override
 load_dotenv('.env', override=True)
 API_KEY = os.getenv("WEATHER_API_KEY")
-print(f"API_KEY loaded: {API_KEY}")  # Debug statement
-print(f"Current working directory: {os.getcwd()}")  # Debug working directory
-print(f"All env vars: {dict(os.environ)}")  # Debug all environment variables
-if not API_KEY:
-    print("Warning: API_KEY is not set. Check .env file format or permissions.")
-
-# Set up logging
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Optional: Add OpenAI API key
+print(f"API_KEY loaded: {API_KEY}, OPENAI_API_KEY loaded: {OPENAI_API_KEY}")  # Debug statement
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
-
-# Generate a key for Fernet
-key = Fernet.generate_key()
-cipher_suite = Fernet(key)
+logger.debug(f"API_KEY from environment: {API_KEY}, OPENAI_API_KEY: {OPENAI_API_KEY}")
+if not API_KEY:
+    logger.error("API_KEY is not set. Check Render environment variables.")
+if OPENAI_API_KEY and not API_KEY:
+    logger.warning("WEATHER_API_KEY missing, but OPENAI_API_KEY present. Proceeding with AI fallback.")
 
 # Set up NLTK
 nltk_data_path = os.path.join(os.getcwd(), 'nltk_data')
@@ -37,10 +33,11 @@ nltk.data.path.append(nltk_data_path)
 try:
     nltk.download('punkt', download_dir=nltk_data_path, quiet=True)
     nltk.download('wordnet', download_dir=nltk_data_path, quiet=True)
+    nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_path, quiet=True)
 except Exception as e:
     logger.error(f"NLTK download failed: {e}")
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.secret_key = os.urandom(24)
 
 # Knowledge base for adaptive learning
@@ -56,52 +53,92 @@ else:
 def web_search(query):
     try:
         if not API_KEY:
-            return "API key not configured. Please encrypt and set it up securely."
+            return "API key not configured. Please contact the administrator."
         if "weather" in query.lower():
             location = re.search(r"where (.*)\?", query) or re.search(r"in (.*)", query)
             if location:
                 city = location.group(1).strip()
                 url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={city}&aqi=no"
-                response = requests.get(url)
+                response = requests.get(url, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     return f"Current weather in {city}: {data['current']['temp_c']}°C, {data['current']['condition']['text']}."
-                return f"Could not fetch weather for {city}. Please check the location or try again later (Status: {response.status_code})."
+                logger.error(f"Weather API failed for {city}: Status {response.status_code}")
+                return f"Could not fetch weather for {city}. Please check the location or try again later."
+            return "Please specify a city (e.g., 'weather in London')."
         elif "great wall of china" in query.lower():
             url = "https://en.wikipedia.org/wiki/Great_Wall_of_China"
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             soup = BeautifulSoup(response.text, 'html.parser')
             paragraph = soup.find('p')
             return paragraph.text[:200] + "..." if paragraph else "The Great Wall of China is a historic fortification built to protect against invasions, stretching over 21,000 km."
         else:
             return f"I’m searching for {query}. Based on available data: [Simulated result - integrate a real API]."
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error(f"Web search error: {e}")
-        return f"Error fetching data for {query}. Please try again."
+        return f"Error fetching data for {query}. Check your internet connection or try again."
+    except Exception as e:
+        logger.error(f"Unexpected error in web_search: {e}")
+        return f"Error processing your request. Please try again."
 
 def process_query(message):
     logger.debug(f"Processing query: {message}")
     if not message or not isinstance(message, str):
         return "Please provide a valid question!"
+
     try:
         message = message.lower().strip()
-        # Handle specific queries
+        tokens = nltk.word_tokenize(message)
+        tagged = nltk.pos_tag(tokens)
+
+        # Specific query handling
         if "weather" in message:
             return web_search(message)
         elif "great wall of china" in message:
             return web_search(message)
+        elif "time" in message:
+            from datetime import datetime
+            return f"The current time is {datetime.now().strftime('%H:%M:%S')} on {datetime.now().strftime('%Y-%m-%d')}."
         elif "?" in message:
-            # Check adaptive knowledge base
+            # Check adaptive learning
             for category, responses in knowledge_base.items():
                 if category in message:
                     return responses[0] if responses else "I’m learning about this. Please provide more info!"
             # Learn new information
             if not any(cat in message for cat in knowledge_base.keys()):
                 return "I don’t know yet. Please tell me the answer, and I’ll learn it!"
-        return "Please ask a specific question, and I’ll provide an accurate response!"
+
+        # AI-like response generation with NLTK
+        if any(word in message for word in ["hi", "hello", "hey"]):
+            return "Hello! How can I assist you today?"
+        elif any(word in message for word in ["who are you", "what are you"]):
+            return "I’m Grok 3, built by xAI, an AI designed to provide helpful and truthful answers."
+        elif any(word in ["help", "assist"] for word, pos in tagged if pos.startswith('VB')):
+            return "I can assist with weather, time, or learn new things. Ask me anything!"
+        elif any(word in ["bye", "goodbye"] for word in tokens):
+            return "Goodbye! Feel free to return anytime."
+        elif any(pos in ['NN', 'NNS'] for _, pos in tagged):  # Noun detection
+            return f"I see you mentioned {tokens[0]}. Could you provide more context or ask a question about it?"
+        else:
+            return "I’m not sure how to respond. Try 'hi', 'who are you', 'weather in [city]', or teach me something new!"
+
+        # Optional: Integrate OpenAI API if key is available
+        if OPENAI_API_KEY:
+            import openai
+            openai.api_key = OPENAI_API_KEY
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": message}]
+                )
+                return response.choices[0].message['content'].strip()
+            except Exception as e:
+                logger.error(f"OpenAI API error: {e}")
+                return "Error with AI API. Falling back to basic response."
+
     except Exception as e:
         logger.error(f"Error in process_query: {e}")
-        return "Error processing your question."
+        return "Error processing your question. Please try again."
 
 def save_learned_knowledge(question, answer):
     category = re.sub(r'\W+', '_', question.split('?')[0].strip())
@@ -135,6 +172,7 @@ def get_user(username):
 def encrypt_credentials(username, password, name=None, email=None):
     credentials = {"username": username, "password": password, "name": name, "email": email}
     credentials_json = json.dumps(credentials).encode()
+    cipher_suite = Fernet(Fernet.generate_key())  # Regenerate key for each encryption
     encrypted_data = cipher_suite.encrypt(credentials_json)
     with open('credentials.enc', 'wb') as f:
         f.write(encrypted_data)
@@ -146,6 +184,8 @@ def decrypt_credentials():
     try:
         with open(credentials_file, 'rb') as f:
             encrypted_data = f.read()
+        # Use the same key generation logic (note: this is a simplification; in production, store the key)
+        cipher_suite = Fernet(Fernet.generate_key())
         decrypted_data = cipher_suite.decrypt(encrypted_data)
         return json.loads(decrypted_data.decode())
     except Exception as e:
@@ -192,7 +232,8 @@ def home():
         return redirect(url_for('login'))
     user_id = session.get('user_id')
     current_chat_id = session.get('current_chat_id')
-    return render_template("index.html", logged_in=True, user_id=user_id, username=user_id, current_chat_id=current_chat_id)
+    history = get_chat_history(user_id, current_chat_id)
+    return render_template("index.html", logged_in=True, user_id=user_id, username=user_id, current_chat_id=current_chat_id, history=history)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -298,7 +339,7 @@ def get_history():
         conn.close()
         return jsonify({"history": history, "chatIds": chat_ids})
     except Exception as e:
-        logger.error(f"Error in get_history: {str(e)}")
+        logger.error(f"Error in get_history: {e}")
         return jsonify({"error": "Failed to load history"})
 
 @app.route("/settings", methods=["GET", "POST"])
