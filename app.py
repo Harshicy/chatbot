@@ -5,16 +5,17 @@ import os
 import sqlite3
 from datetime import datetime
 import json
-import random
+import re
 import logging
 from cryptography.fernet import Fernet
-import re
+from bs4 import BeautifulSoup  # For HTML parsing (install: pip install beautifulsoup4)
+import requests  # For web requests (install: pip install requests)
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
 
-# Generate a key for Fernet (store securely in production)
+# Generate a key for Fernet
 key = Fernet.generate_key()
 cipher_suite = Fernet(key)
 
@@ -32,83 +33,74 @@ except Exception as e:
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Load or initialize knowledge base
+# Knowledge base for adaptive learning
 KNOWLEDGE_BASE_FILE = 'knowledge_base.json'
 if os.path.exists(KNOWLEDGE_BASE_FILE):
     with open(KNOWLEDGE_BASE_FILE, 'r') as f:
         knowledge_base = json.load(f)
 else:
-    knowledge_base = {
-        "greetings": ["Hello! How can I assist you today?", "Hi there! What’s on your mind?", "Hey! Ready to chat?",
-                      "Good day! How may I help you?", "Greetings! What can I do for you?", "Yo! What’s up?"],
-        "farewells": ["Goodbye! Come back soon!", "See you later!", "Take care!", "Farewell! Visit again!",
-                      "Catch you later!", "Have a great day!"],
-        "how_are_you": ["I'm doing great, thanks for asking! How about you?", "As an AI, I'm always good! How can I help you today?",
-                        "Feeling fantastic! What about you?", "I'm awesome, thanks! How are you feeling?",
-                        "Doing well! How can I make your day better?"],
-        "name": ["I'm Harsha's Chatbot, created to assist you!", "You can call me Harsha's Chatbot!",
-                 "I’m your friendly Harsha's Chatbot!", "Meet Harsha's Chatbot, at your service!"],
-        "weather": ["I can’t check the weather directly, but I can search for the latest updates! Please tell me a location.",
-                    "Weather info? Let me look it up for you! Where are you interested in?",
-                    "I’ll fetch the latest weather data. Please provide a city or place!"],
-        "great_wall_of_china": ["The Great Wall of China is an ancient fortification built to protect against invasions, stretching over 21,000 km. Want more details?",
-                               "It’s a UNESCO World Heritage site, constructed over centuries, with the Ming Dynasty section being the most famous. Ask me more!",
-                               "A symbol of Chinese history, the wall dates back over 2,000 years. Interested in its length or weather?"],
-        "history": ["History is vast! Tell me a topic (e.g., Great Wall, wars), and I’ll share what I know.",
-                    "I can talk about ancient civilizations, wars, or dynasties. What interests you?",
-                    "From Egypt to China, history is full of stories. Pick a subject!"],
-        "travel": ["Love to travel? Tell me a destination, and I’ll give you tips or info!",
-                   "Traveling is fun! Where are you headed? I can suggest the best times to visit.",
-                   "I can help with travel plans. Name a place, and I’ll assist!"],
-        "general": ["That’s interesting! Can you tell me more?", "I’m learning as we go. Elaborate, please!",
-                    "Fascinating! Share more details so I can assist better."]
-    }
+    knowledge_base = {}
     with open(KNOWLEDGE_BASE_FILE, 'w') as f:
         json.dump(knowledge_base, f)
 
 def web_search(query):
-    # Simulate real-time search using preloaded web results (replace with actual API in production)
-    logger.debug(f"Searching web for: {query}")
-    results = {
-        "weather": "Check weather.com.cn for real-time updates. As of April 12, 2025, Beijing is around 15°C with clear skies.",
-        "great wall of china": "The Great Wall of China, over 21,000 km long, was built to defend against invasions, with the Ming Dynasty section (8,850 km) being iconic. Best visited in spring or autumn."
-    }.get(query.lower(), f"No real-time data available for {query}. Let me learn from you!")
-    return results
+    try:
+        # Simulate AI-driven search with a real API (e.g., Google Custom Search or WeatherAPI)
+        if "weather" in query.lower():
+            location = re.search(r"where (.*)\?", query) or re.search(r"in (.*)", query)
+            if location:
+                city = location.group(1).strip()
+                url = f"http://api.weatherapi.com/v1/current.json?key=YOUR_API_KEY&q={city}&aqi=no"
+                response = requests.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    return f"Current weather in {city}: {data['current']['temp_c']}°C, {data['current']['condition']['text']}."
+                return f"Could not fetch weather for {city}. Please check the location or try again later."
+        elif "great wall of china" in query.lower():
+            url = "https://en.wikipedia.org/wiki/Great_Wall_of_China"
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            paragraph = soup.find('p')
+            return paragraph.text[:200] + "..." if paragraph else "The Great Wall of China is a historic fortification built to protect against invasions, stretching over 21,000 km."
+        else:
+            # General search (placeholder)
+            return f"I’m searching for {query}. Based on available data: [Simulated result - integrate a real API like Google Custom Search]."
+    except Exception as e:
+        logger.error(f"Web search error: {e}")
+        return f"Error fetching data for {query}. Please try again."
 
-def get_response(message):
-    logger.debug(f"get_response called with message: {message}")
+def process_query(message):
+    logger.debug(f"Processing query: {message}")
     if not message or not isinstance(message, str):
-        logger.warning("Invalid message input")
-        return "Please provide a valid message!"
+        return "Please provide a valid question!"
     try:
         message = message.lower().strip()
-        # Check for dynamic queries
-        if "weather" in message and "where" in message:
-            location = re.search(r"where (.*)\?", message)
-            if location:
-                return web_search("weather") + f" For {location.group(1)}, check a local forecast site!"
-            return web_search("weather")
+        # Handle specific queries
+        if "weather" in message:
+            return web_search(message)
         elif "great wall of china" in message:
-            return web_search("great wall of china")
-        elif any(cat in message for cat in knowledge_base.keys()):
+            return web_search(message)
+        elif "?" in message:
+            # Check adaptive knowledge base
             for category, responses in knowledge_base.items():
                 if category in message:
-                    return random.choice(responses)
-        # Adaptive learning: Add new knowledge
-        if "?" in message and not any(cat in message for cat in knowledge_base.keys()):
-            user_response = input("Please provide an answer to add to my knowledge: ")  # Simulate user input (replace with UI in production)
-            if user_response and len(user_response.split()) > 3:  # Basic validation
-                new_category = re.sub(r'\W+', '_', message.split('?')[0].strip())
-                if new_category not in knowledge_base:
-                    knowledge_base[new_category] = []
-                knowledge_base[new_category].append(user_response)
-                with open(KNOWLEDGE_BASE_FILE, 'w') as f:
-                    json.dump(knowledge_base, f)
-                return f"Thanks! I’ve learned: {user_response}"
-        return random.choice(knowledge_base["general"])
+                    return random.choice(responses) if responses else "I’m learning about this. Please provide more info!"
+            # Learn new information
+            if not any(cat in message for cat in knowledge_base.keys()):
+                return "I don’t know yet. Please tell me the answer, and I’ll learn it!"
+        return "Please ask a specific question, and I’ll provide an accurate response!"
     except Exception as e:
-        logger.error(f"Error in get_response logic: {e}")
-        return "Error processing your request."
+        logger.error(f"Error in process_query: {e}")
+        return "Error processing your question."
+
+def save_learned_knowledge(question, answer):
+    category = re.sub(r'\W+', '_', question.split('?')[0].strip())
+    if category not in knowledge_base:
+        knowledge_base[category] = []
+    knowledge_base[category].append(answer)
+    with open(KNOWLEDGE_BASE_FILE, 'w') as f:
+        json.dump(knowledge_base, f)
+    return "Thank you! I’ve learned: " + answer
 
 def init_db():
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
@@ -250,7 +242,7 @@ def get_response_route():
         if not user_message:
             logger.warning("No message provided")
             return "No message provided"
-        response = get_response(user_message)
+        response = process_query(user_message)
         logger.debug(f"Response generated: {response}")
         save_message(user_id, user_message, True, current_chat_id)
         save_message(user_id, response, False, current_chat_id)
@@ -320,6 +312,21 @@ def settings():
             encrypt_credentials(user_id, new_password, name, email)
         return redirect(url_for('home'))
     return render_template("settings.html", user=user)
+
+@app.route("/learn", methods=["POST"])
+def learn():
+    if not session.get('logged_in'):
+        return jsonify({"status": "Unauthorized"})
+    try:
+        question = request.form.get("question")
+        answer = request.form.get("answer")
+        if question and answer and "?" in question:
+            response = save_learned_knowledge(question, answer)
+            return jsonify({"status": "OK", "response": response})
+        return jsonify({"status": "Error", "message": "Invalid input"})
+    except Exception as e:
+        logger.error(f"Error in learn: {str(e)}")
+        return jsonify({"status": "Error", "message": str(e)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
