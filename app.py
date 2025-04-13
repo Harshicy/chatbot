@@ -46,10 +46,6 @@ try:
 except Exception as e:
     logger.error(f"NLTK download failed: {e}")
 
-# Initialize Google Translator (using googletrans==3.1.0a0)
-from googletrans import Translator
-translator = Translator()
-
 # Optional OpenAI import
 try:
     import openai
@@ -142,16 +138,6 @@ def process_query(message):
                 return "Couldn’t fetch news."
             return "Error fetching news. Check your connection."
 
-        if "translate" in message:
-            try:
-                text = message.split("translate")[-1].strip()
-                detected_lang = translator.detect(text).lang
-                translated = translator.translate(text, dest='en' if detected_lang != 'en' else 'es').text
-                return f"Detected: {detected_lang}\nTranslated: {translated}"
-            except Exception as e:
-                logger.error(f"Translation error: {e}")
-                return f"Translation error: {str(e)}"
-
         if "schedule" in message or "task" in message:
             if not ZAPIER_WEBHOOK_URL:
                 return "Zapier webhook URL not configured."
@@ -168,7 +154,7 @@ def process_query(message):
         elif any(word in message for word in ["who are you", "what are you"]):
             return "I’m a chatbot, built by harsha, designed to provide helpful answers."
         elif any(word in ["help", "assist"] for word, pos in tagged if pos.startswith('VB')):
-            return "I can assist with weather, time, news, translations, scheduling, or learn new things. Ask me anything!"
+            return "I can assist with weather, time, news, scheduling, or learn new things. Ask me anything!"
         elif any(word in ["bye", "goodbye"] for word in tokens):
             return "Goodbye! Return anytime."
         elif any(pos in ['NN', 'NNS'] for _, pos in tagged):
