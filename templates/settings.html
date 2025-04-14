@@ -8,33 +8,99 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
         body { background: #f0f2f5; color: #1a1a1a; overflow-x: hidden; }
         #logo { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font-size: 2.5em; color: #1da1f2; z-index: 1000; }
-        .container { max-width: 400px; margin: 100px auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { max-width: 500px; margin: 100px auto; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         h2 { text-align: center; margin-bottom: 20px; color: #1da1f2; }
-        .form-group { margin-bottom: 15px; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        button { width: 100%; padding: 10px; background: #1da1f2; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .form-group { margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        input[type="file"] { padding: 8px; }
+        button { background: #1da1f2; color: white; border: none; cursor: pointer; transition: background 0.3s; }
         button:hover { background: #1991e6; }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .checkbox-group label { margin: 0; }
         .error { color: #dc3545; text-align: center; margin-top: 10px; }
-        a { display: block; text-align: center; margin-top: 10px; color: #1da1f2; text-decoration: none; }
+        .success { color: #28a745; text-align: center; margin-top: 10px; }
+        a { display: block; text-align: center; margin-top: 20px; color: #1da1f2; text-decoration: none; }
+        @media (max-width: 600px) {
+            .container { margin: 50px 10px; padding: 20px; }
+        }
     </style>
 </head>
 <body>
     <div id="logo">H</div>
     <div class="container">
         <h2>Settings</h2>
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
+            <!-- Profile Picture -->
+            <div class="form-group">
+                <label for="profile_picture">Profile Picture</label>
+                <input type="file" id="profile_picture" name="profile_picture" accept="image/*" aria-label="Profile Picture">
+            </div>
+
+            <!-- Basic Information -->
             <div class="form-group">
                 <input type="text" name="name" value="{{ user[3] }}" placeholder="Full Name" required aria-label="Full Name">
             </div>
             <div class="form-group">
                 <input type="email" name="email" value="{{ user[4] }}" placeholder="Email" required aria-label="Email">
             </div>
+
+            <!-- Password Management -->
+            <div class="form-group">
+                <input type="password" name="current_password" placeholder="Current Password" required aria-label="Current Password">
+            </div>
             <div class="form-group">
                 <input type="password" name="new_password" placeholder="New Password (min 6 chars)" aria-label="New Password">
             </div>
+
+            <!-- Two-Factor Authentication -->
+            <div class="form-group">
+                <label>Two-Factor Authentication</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="two_factor" id="two_factor" {% if user.get('two_factor_enabled', False) %}checked{% endif %} aria-label="Enable Two-Factor Authentication">
+                    <label for="two_factor">Enable 2FA</label>
+                </div>
+            </div>
+
+            <!-- Notification Preferences -->
+            <div class="form-group">
+                <label>Notification Preferences</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="email_notifications" id="email_notifications" {% if user.get('email_notifications', True) %}checked{% endif %} aria-label="Email Notifications">
+                    <label for="email_notifications">Email</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="sms_notifications" id="sms_notifications" {% if user.get('sms_notifications', False) %}checked{% endif %} aria-label="SMS Notifications">
+                    <label for="sms_notifications">SMS</label>
+                </div>
+            </div>
+
+            <!-- Security Questions -->
+            <div class="form-group">
+                <label for="security_question1">Security Question 1</label>
+                <select name="security_question1" id="security_question1" required aria-label="Security Question 1">
+                    <option value="" disabled {% if not user.get('security_question1') %}selected{% endif %}>Select a question</option>
+                    <option value="What was your childhood nickname?" {% if user.get('security_question1') == "What was your childhood nickname?" %}selected{% endif %}>What was your childhood nickname?</option>
+                    <option value="What is the name of your first pet?" {% if user.get('security_question1') == "What is the name of your first pet?" %}selected{% endif %}>What is the name of your first pet?</option>
+                    <option value="What was the model of your first car?" {% if user.get('security_question1') == "What was the model of your first car?" %}selected{% endif %}>What was the model of your first car?</option>
+                </select>
+                <input type="text" name="security_answer1" placeholder="Answer" value="{{ user.get('security_answer1', '') }}" required aria-label="Security Answer 1">
+            </div>
+            <div class="form-group">
+                <label for="security_question2">Security Question 2</label>
+                <select name="security_question2" id="security_question2" required aria-label="Security Question 2">
+                    <option value="" disabled {% if not user.get('security_question2') %}selected{% endif %}>Select a question</option>
+                    <option value="What was your childhood nickname?" {% if user.get('security_question2') == "What was your childhood nickname?" %}selected{% endif %}>What was your childhood nickname?</option>
+                    <option value="What is the name of your first pet?" {% if user.get('security_question2') == "What is the name of your first pet?" %}selected{% endif %}>What is the name of your first pet?</option>
+                    <option value="What was the model of your first car?" {% if user.get('security_question2') == "What was the model of your first car?" %}selected{% endif %}>What was the model of your first car?</option>
+                </select>
+                <input type="text" name="security_answer2" placeholder="Answer" value="{{ user.get('security_answer2', '') }}" required aria-label="Security Answer 2">
+            </div>
+
             <button type="submit">Save Changes</button>
         </form>
-        <a href="/">Back to Chat</a>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        {% if success %}<div class="success">{{ success }}</div>{% endif %}
+        <a href="{{ url_for('home') }}">Back to Chat</a>
     </div>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename, safe_join
 import nltk
 import os
 import sqlite3
@@ -12,7 +13,7 @@ from bs4 import BeautifulSoup
 import requests
 from dotenv import load_dotenv
 
-# Initialize logging
+# Initialize logging with detailed output
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w')
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,10 @@ except ImportError:
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.secret_key = os.urandom(24)
+UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Knowledge base
 KNOWLEDGE_BASE_FILE = 'knowledge_base.json'
@@ -163,7 +168,7 @@ def process_query(message):
             if openai and OPENAI_API_KEY:
                 try:
                     response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",  # Modern chat model
+                        model="gpt-3.5-turbo",
                         messages=[{"role": "user", "content": message}],
                         max_tokens=150,
                         temperature=0.7
@@ -193,8 +198,29 @@ def save_learned_knowledge(question, answer):
 def init_db():
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
+    # Create the users table with initial columns
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT)''')
+    # Add new columns if they don't exist (migration logic)
+    c.execute("PRAGMA table_info(users)")
+    columns = [row[1] for row in c.fetchall()]
+    if 'two_factor_enabled' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0")
+    if 'email_notifications' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1")
+    if 'sms_notifications' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN sms_notifications INTEGER DEFAULT 0")
+    if 'security_question1' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN security_question1 TEXT")
+    if 'security_answer1' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN security_answer1 TEXT")
+    if 'security_question2' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN security_question2 TEXT")
+    if 'security_answer2' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN security_answer2 TEXT")
+    if 'profile_picture' not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN profile_picture TEXT")
+    # Create the chats table
     c.execute('''CREATE TABLE IF NOT EXISTS chats
                  (id INTEGER PRIMARY KEY, user_id TEXT, chat_id TEXT, message TEXT, is_user INTEGER, timestamp TEXT)''')
     conn.commit()
@@ -206,14 +232,28 @@ def get_user(username):
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE username = ?", (username,))
-    user = c.fetchone()
+    row = c.fetchone()
     conn.close()
-    return user
+    if row:
+        # Map tuple to dictionary with column names
+        columns = ['id', 'username', 'password', 'name', 'email', 'two_factor_enabled', 'email_notifications',
+                   'sms_notifications', 'security_question1', 'security_answer1', 'security_question2',
+                   'security_answer2', 'profile_picture']
+        return dict(zip(columns, row))
+    return None
 
-def encrypt_credentials(username, password, name=None, email=None):
+def encrypt_credentials(username, password, name=None, email=None, two_factor_enabled=None, email_notifications=None, 
+                       sms_notifications=None, security_question1=None, security_answer1=None, 
+                       security_question2=None, security_answer2=None, profile_picture=None):
     key = Fernet.generate_key()
     cipher_suite = Fernet(key)
-    credentials = {"username": username, "password": password, "name": name, "email": email}
+    credentials = {
+        "username": username, "password": password, "name": name, "email": email,
+        "two_factor_enabled": two_factor_enabled, "email_notifications": email_notifications,
+        "sms_notifications": sms_notifications, "security_question1": security_question1,
+        "security_answer1": security_answer1, "security_question2": security_question2,
+        "security_answer2": security_answer2, "profile_picture": profile_picture
+    }
     encrypted_data = cipher_suite.encrypt(json.dumps(credentials).encode())
     with open('credentials.enc', 'wb') as f:
         f.write(encrypted_data)
@@ -273,58 +313,77 @@ def delete_chat(user_id, chat_id):
 
 @app.route("/")
 def home():
+    logger.debug("Accessing home route")
     if not session.get('logged_in'):
         credentials = decrypt_credentials()
+        logger.debug(f"Credentials from decrypt: {credentials}")
         if credentials.get('username') and credentials.get('password'):
             user = get_user(credentials['username'])
-            if user and check_password_hash(user[2], credentials['password']):
+            if user and check_password_hash(user['password'], credentials['password']):
                 session['logged_in'] = True
                 session['user_id'] = credentials['username']
                 session['current_chat_id'] = f"chat_{credentials['username']}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+                logger.debug(f"Auto-logged in user: {credentials['username']}")
                 return redirect(url_for('home'))
+        logger.debug("Redirecting to login page")
         return redirect(url_for('login'))
     user_id = session.get('user_id')
-    current_chat_id = session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
+    current_chat_id = request.args.get('chatId') or session.get('current_chat_id')
+    if not current_chat_id:
+        current_chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+        session['current_chat_id'] = current_chat_id
     history = get_chat_history(user_id, current_chat_id)
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT DISTINCT chat_id FROM chats WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
     chat_ids = [row[0] for row in c.fetchall()]
     conn.close()
+    logger.debug(f"Rendering index.html for user: {user_id}, current_chat_id: {current_chat_id}")
     return render_template("index.html", logged_in=True, user_id=user_id, current_chat_id=current_chat_id, history=history, chatIds=chat_ids, openai_available=openai_available)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    logger.debug(f"Accessing login route, method: {request.method}")
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
+        logger.debug(f"Login attempt for username: {username}")
         user = get_user(username)
-        if user and check_password_hash(user[2], password):
+        if user and check_password_hash(user['password'], password):
             session['logged_in'] = True
             session['user_id'] = username
             session['current_chat_id'] = f"chat_{username}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-            encrypt_credentials(username, password, user[3], user[4])
+            encrypt_credentials(username, password, user['name'], user['email'], user['two_factor_enabled'], user['email_notifications'], user['sms_notifications'], user['security_question1'], user['security_answer1'], user['security_question2'], user['security_answer2'], user['profile_picture'])
+            logger.debug(f"Successful login for user: {username}")
             return redirect(url_for('home'))
+        logger.debug("Login failed: Invalid username or password")
         return render_template("login.html", error="Invalid username or password")
+    logger.debug("Rendering login page")
     return render_template("login.html")
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
+    logger.debug("Accessing logout route")
     session.pop('logged_in', None)
     session.pop('user_id', None)
     session.pop('current_chat_id', None)
+    logger.debug("User logged out, redirecting to login")
     return redirect(url_for('login'))
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    logger.debug(f"Accessing register route, method: {request.method}")
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
         name = request.form.get("name")
         email = request.form.get("email")
+        logger.debug(f"Registration attempt for username: {username}")
         if len(password) < 6:
+            logger.debug("Registration failed: Password too short")
             return render_template("register.html", error="Password must be at least 6 characters")
         if get_user(username):
+            logger.debug("Registration failed: Username already exists")
             return render_template("register.html", error="Username already exists")
         hashed_password = generate_password_hash(password)
         conn = sqlite3.connect('chat_history.db', check_same_thread=False)
@@ -334,27 +393,36 @@ def register():
         conn.commit()
         conn.close()
         encrypt_credentials(username, password, name, email)
+        logger.debug(f"Successful registration for user: {username}")
         return redirect(url_for('login'))
+    logger.debug("Rendering register page")
     return render_template("register.html")
 
-@app.route("/get_response", methods=["POST"])
+@app.route("/get_response_route", methods=["POST"])
 def get_response_route():
+    logger.debug("Accessing get_response route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to get_response")
         return "Please log in to chat"
     try:
         user_message = request.form.get("message")
         user_id = session.get('user_id')
-        current_chat_id = session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
+        chat_id = request.form.get("chatId") or session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
+        logger.debug(f"Processing message: {user_message} for user: {user_id}, chat_id: {chat_id}")
         if not user_message:
+            logger.debug("No message provided")
             return "No message provided"
         if "new chat" in user_message.lower():
-            current_chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-            session['current_chat_id'] = current_chat_id
+            chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+            session['current_chat_id'] = chat_id
+            logger.debug(f"New chat started, chat_id: {chat_id}")
+            save_message(user_id, "New chat started!", False, chat_id)
             return "New chat started!"
         response = process_query(user_message)
-        save_message(user_id, user_message, True, current_chat_id)
-        save_message(user_id, response, False, current_chat_id)
-        session['current_chat_id'] = current_chat_id
+        save_message(user_id, user_message, True, chat_id)
+        save_message(user_id, response, False, chat_id)
+        session['current_chat_id'] = chat_id
+        logger.debug(f"Response sent: {response}")
         return response
     except Exception as e:
         logger.error(f"Exception in get_response_route: {e}")
@@ -362,13 +430,16 @@ def get_response_route():
 
 @app.route("/save_message", methods=["POST"])
 def save_message_route():
+    logger.debug("Accessing save_message route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to save_message")
         return jsonify({"status": "Unauthorized"})
     try:
         user_id = session.get('user_id')
         message = request.form.get("message")
         is_user = request.form.get("isUser") == "true"
         chat_id = request.form.get("chatId") or session.get('current_chat_id')
+        logger.debug(f"Saving message: {message} for user: {user_id}, chat_id: {chat_id}")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
@@ -383,11 +454,14 @@ def save_message_route():
 
 @app.route("/get_history")
 def get_history():
+    logger.debug("Accessing get_history route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to get_history")
         return jsonify({"error": "Please log in"})
     try:
         user_id = session.get('user_id')
         chat_id = request.args.get('chatId') or session.get('current_chat_id')
+        logger.debug(f"Fetching history for user: {user_id}, chat_id: {chat_id}")
         history = get_chat_history(user_id, chat_id)
         conn = sqlite3.connect('chat_history.db', check_same_thread=False)
         c = conn.cursor()
@@ -399,13 +473,16 @@ def get_history():
         logger.error(f"Error in get_history: {e}")
         return jsonify({"error": "Failed to load history"})
 
-@app.route("/delete_chat", methods=["POST"])
+@app.route("/delete_chat_route", methods=["POST"])
 def delete_chat_route():
+    logger.debug("Accessing delete_chat route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to delete_chat")
         return jsonify({"status": "Unauthorized"})
     try:
         user_id = session.get('user_id')
         chat_id = request.form.get("chatId")
+        logger.debug(f"Deleting chat: {chat_id} for user: {user_id}")
         if not chat_id:
             return jsonify({"status": "Error", "message": "No chat ID provided"})
         result = delete_chat(user_id, chat_id)
@@ -418,33 +495,64 @@ def delete_chat_route():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
+    logger.debug("Accessing settings route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to settings, redirecting to login")
         return redirect(url_for('login'))
     user_id = session.get('user_id')
     user = get_user(user_id)
     if request.method == "POST":
-        name = request.form.get("name")
-        email = request.form.get("email")
+        current_password = request.form.get("current_password")
         new_password = request.form.get("new_password")
-        if new_password and len(new_password) >= 6:
-            hashed_password = generate_password_hash(new_password)
+        name = request.form.get("name", user['name'] if user else "")
+        email = request.form.get("email", user['email'] if user else "")
+        two_factor = request.form.get("two_factor") == "on"
+        email_notifications = request.form.get("email_notifications") == "on"
+        sms_notifications = request.form.get("sms_notifications") == "on"
+        security_question1 = request.form.get("security_question1")
+        security_answer1 = request.form.get("security_answer1")
+        security_question2 = request.form.get("security_question2")
+        security_answer2 = request.form.get("security_answer2")
+        profile_picture = None
+
+        if user and check_password_hash(user['password'], current_password):
+            if new_password and len(new_password) >= 6:
+                hashed_password = generate_password_hash(new_password)
+            else:
+                hashed_password = user['password']
+
+            if 'profile_picture' in request.files:
+                file = request.files['profile_picture']
+                if file and file.filename:
+                    filename = secure_filename(f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
+                    file_path = safe_join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    profile_picture = filename
+
             conn = sqlite3.connect('chat_history.db', check_same_thread=False)
             c = conn.cursor()
-            c.execute("UPDATE users SET password = ?, name = ?, email = ? WHERE username = ?",
-                      (hashed_password, name or user[3], email or user[4], user_id))
+            c.execute("UPDATE users SET password = ?, name = ?, email = ?, two_factor_enabled = ?, email_notifications = ?, sms_notifications = ?, security_question1 = ?, security_answer1 = ?, security_question2 = ?, security_answer2 = ?, profile_picture = ? WHERE username = ?",
+                      (hashed_password, name, email, two_factor, email_notifications, sms_notifications, security_question1, security_answer1, security_question2, security_answer2, profile_picture or user.get('profile_picture'), user_id))
             conn.commit()
             conn.close()
-            encrypt_credentials(user_id, new_password, name, email)
-        return redirect(url_for('home'))
+            encrypt_credentials(user_id, new_password or current_password, name, email, two_factor, email_notifications, sms_notifications, security_question1, security_answer1, security_question2, security_answer2, profile_picture or user.get('profile_picture'))
+            logger.debug(f"Settings updated for user: {user_id}")
+            return redirect(url_for('settings', success="Settings updated successfully"))
+        logger.debug("Settings update failed: Invalid current password")
+        return render_template("settings.html", user=user, error="Invalid current password")
+    logger.debug("Rendering settings page")
     return render_template("settings.html", user=user)
 
 @app.route("/learn", methods=["POST"])
 def learn():
+    logger.debug("Accessing learn route")
     if not session.get('logged_in'):
+        logger.debug("Unauthorized access to learn")
         return jsonify({"status": "Unauthorized"})
     try:
         question = request.form.get("question")
         answer = request.form.get("answer")
+        logger.debug(f"Learning attempt: question={question}, answer={answer}")
         if question and answer and "?" in question:
             response = save_learned_knowledge(question, answer)
             return jsonify({"status": "OK", "response": response})
