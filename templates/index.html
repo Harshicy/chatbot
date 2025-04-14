@@ -22,13 +22,13 @@
         }
         .chat-container {
             width: 100%;
-            height: 100vh; /* Fill the entire viewport height */
+            height: 100vh;
             background: #202123;
-            border-radius: 0; /* Remove radius for full-page effect */
+            border-radius: 0;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            box-shadow: none; /* Remove shadow for full-page effect */
+            box-shadow: none;
         }
         .header {
             background: #1a1a2e;
@@ -193,7 +193,7 @@
         <div id="sidebar" class="sidebar">
             <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
             {% for chat_id in chatIds %}
-                <a href="#" onclick="loadChat('{{ chat_id }}')">{{ chat_id }}</a>
+                <a href="#" onclick="loadChat('{{ chat_id }}')" data-chat-id="{{ chat_id }}">{{ chat_id | truncate(20, true, '...') }}</a>
                 <a href="#" onclick="deleteChat('{{ chat_id }}')" style="color: #ff4444;">Delete</a>
             {% endfor %}
             <a href="#" onclick="startNewChat()">New Chat</a>
@@ -222,7 +222,7 @@
     <script>
         const username = "{{ user_id | default('') }}";
         const currentChatId = "{{ current_chat_id | default('') }}";
-        const chatIds = {{ chatIds | tojson | safe }};
+        let chatIds = {{ chatIds | tojson | safe }};
         const openaiAvailable = {{ openai_available | tojson }};
 
         // Toggle sidebar functionality
@@ -295,44 +295,74 @@
                         chatBox.appendChild(messageDiv);
                     });
                     chatBox.scrollTop = chatBox.scrollHeight;
-                });
+                    sessionStorage.setItem('currentChatId', chatId);
+                })
+                .catch(error => console.error('Error loading chat:', error));
         }
 
-        // Delete chat
-        function deleteChat(chatId) {
-            if (confirm("Are you sure you want to delete this chat?")) {
-                fetch('{{ url_for('delete_chat_route') }}', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `chatId=${encodeURIComponent(chatId)}`
-                })
-                .then(response => response.json())
-                .then(data => {
+        // Delete chat with dynamic update
+        async function deleteChat(chatId) {
+            if (confirm(`Are you sure you want to delete chat ${chatId}? This action cannot be undone.`)) {
+                try {
+                    const response = await fetch('{{ url_for('delete_chat_route') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRF-Token': '{{ session.csrf_token | default('') }}' // Add CSRF token if needed
+                        },
+                        body: `chatId=${encodeURIComponent(chatId)}`
+                    });
+                    const data = await response.json();
                     if (data.status === "OK") {
-                        const chatBox = document.getElementById("chat-box");
-                        chatBox.innerHTML = '<div class="message bot-message">Chat deleted. Start a new chat.</div>';
-                        chatBox.scrollTop = chatBox.scrollHeight;
-                        // Remove the chat from the sidebar
+                        alert('Chat deleted successfully!');
+                        // Update chatIds with the new list from the server
+                        chatIds = data.updatedChatIds;
+                        // Refresh sidebar
                         const sidebar = document.getElementById('sidebar');
-                        if (sidebar) {
-                            const chatLinks = sidebar.getElementsByTagName('a');
-                            for (let i = 0; i < chatLinks.length; i++) {
-                                if (chatLinks[i].textContent === chatId || chatLinks[i].textContent === 'Delete') {
-                                    sidebar.removeChild(chatLinks[i].parentNode || chatLinks[i]);
-                                    i--; // Adjust index after removal
-                                }
+                        const chatLinks = sidebar.getElementsByTagName('a');
+                        // Remove existing chat links except closebtn and New Chat
+                        while (chatLinks.length > 2) {
+                            sidebar.removeChild(chatLinks[1]); // Skip closebtn (index 0) and New Chat
+                        }
+                        // Rebuild sidebar with updated chatIds
+                        chatIds.forEach(cid => {
+                            if (cid !== chatId) { // Avoid re-adding the deleted chat
+                                const newChatLink = document.createElement('a');
+                                newChatLink.href = '#';
+                                newChatLink.setAttribute('data-chat-id', cid);
+                                newChatLink.onclick = () => loadChat(cid);
+                                newChatLink.textContent = cid.length > 20 ? cid.substring(0, 20) + '...' : cid;
+                                sidebar.insertBefore(newChatLink, sidebar.lastElementChild);
+
+                                const deleteLink = document.createElement('a');
+                                deleteLink.href = '#';
+                                deleteLink.onclick = () => deleteChat(cid);
+                                deleteLink.textContent = 'Delete';
+                                deleteLink.style.color = '#ff4444';
+                                sidebar.insertBefore(deleteLink, sidebar.lastElementChild);
+                            }
+                        });
+                        // Handle current chat deletion
+                        if (chatId === sessionStorage.getItem('currentChatId')) {
+                            document.getElementById('chat-box').innerHTML = '<div class="message bot-message">Chat deleted. Start a new chat.</div>';
+                            sessionStorage.removeItem('currentChatId');
+                            if (chatIds.length > 0) {
+                                loadChat(chatIds[0]); // Switch to first available chat
                             }
                         }
                     } else {
-                        alert("Failed to delete chat: " + data.message);
+                        alert(`Failed to delete chat: ${data.message || 'Unknown error'}`);
                     }
-                });
+                } catch (error) {
+                    console.error('Error during chat deletion:', error);
+                    alert('An error occurred while deleting the chat. Check the console for details.');
+                }
             }
         }
 
         // Start new chat
         function startNewChat() {
-            const newChatId = `chat_{{ user_id | default('guest') }}_${new Date().toISOString().replace(/[:.-]/g, '_')}`;
+            const newChatId = `chat_${username || 'guest'}_${new Date().toISOString().replace(/[:.-]/g, '_')}`;
             fetch('{{ url_for('get_response_route') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -356,9 +386,11 @@
                     if (sidebar) {
                         const newChatLink = document.createElement('a');
                         newChatLink.href = '#';
+                        newChatLink.setAttribute('data-chat-id', newChatId);
                         newChatLink.onclick = () => loadChat(newChatId);
-                        newChatLink.textContent = newChatId;
+                        newChatLink.textContent = newChatId.length > 20 ? newChatId.substring(0, 20) + '...' : newChatId;
                         sidebar.insertBefore(newChatLink, sidebar.lastElementChild);
+
                         const deleteLink = document.createElement('a');
                         deleteLink.href = '#';
                         deleteLink.onclick = () => deleteChat(newChatId);
@@ -366,6 +398,8 @@
                         deleteLink.style.color = '#ff4444';
                         sidebar.insertBefore(deleteLink, sidebar.lastElementChild);
                     }
+                    chatIds.push(newChatId); // Update local chatIds
+                    sessionStorage.setItem('currentChatId', newChatId);
                 }
             })
             .catch(error => console.error('Error starting new chat:', error));
@@ -377,10 +411,11 @@
             const messageInput = document.getElementById("message-input");
             const message = messageInput.value.trim();
             if (message) {
+                const currentChat = sessionStorage.getItem('currentChatId') || currentChatId;
                 fetch('{{ url_for('get_response_route') }}', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `message=${encodeURIComponent(message)}&chatId={{ current_chat_id | default('') | urlencode }}`
+                    body: `message=${encodeURIComponent(message)}&chatId=${encodeURIComponent(currentChat)}`
                 })
                 .then(response => response.text())
                 .then(response => {
@@ -395,13 +430,15 @@
                     chatBox.appendChild(botMsg);
                     chatBox.scrollTop = chatBox.scrollHeight;
                     messageInput.value = "";
-                });
+                })
+                .catch(error => console.error('Error sending message:', error));
             }
         });
 
         // Initialize with current chat
         if (currentChatId && "{{ logged_in }}" === "True") {
             loadChat(currentChatId);
+            sessionStorage.setItem('currentChatId', currentChatId);
         }
 
         // Optionally disable OpenAI features if unavailable

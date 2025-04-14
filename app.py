@@ -223,7 +223,23 @@ def init_db():
     # Create the chats table
     c.execute('''CREATE TABLE IF NOT EXISTS chats
                  (id INTEGER PRIMARY KEY, user_id TEXT, chat_id TEXT, message TEXT, is_user INTEGER, timestamp TEXT)''')
-    conn.commit()
+    # Check and migrate old chat_id formats or handle potential data loss
+    c.execute("SELECT chat_id, user_id FROM chats")
+    migration_count = 0
+    for row in c.fetchall():
+        old_chat_id, user_id = row
+        # Check for old format (e.g., with hyphens and no T) or date mismatch
+        if '-' in old_chat_id and 'T' not in old_chat_id:
+            new_chat_id = f"chat_{user_id}_{datetime.strptime(old_chat_id.replace('chat_', ''), '%Y-%m-%d_%H%M%S').strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
+            c.execute("UPDATE chats SET chat_id = ? WHERE chat_id = ?", (new_chat_id, old_chat_id))
+            logger.debug(f"Migrated chat_id from {old_chat_id} to {new_chat_id}")
+            migration_count += 1
+        # Log existing chat_ids for debugging
+        logger.debug(f"Existing chat_id: {old_chat_id}")
+    if migration_count == 0:
+        logger.debug("No chat_id migrations needed.")
+    else:
+        conn.commit()
     conn.close()
 
 init_db()
@@ -274,7 +290,7 @@ def decrypt_credentials():
 
 def save_message(user_id, message, is_user, chat_id=None):
     if chat_id is None:
-        chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+        chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -282,8 +298,10 @@ def save_message(user_id, message, is_user, chat_id=None):
         c.execute("INSERT INTO chats (user_id, chat_id, message, is_user, timestamp) VALUES (?, ?, ?, ?, ?)",
                   (user_id, chat_id, message, is_user, timestamp))
         conn.commit()
+        logger.debug(f"Successfully saved message for chat_id: {chat_id}, user_id: {user_id}")
     except sqlite3.Error as e:
-        logger.error(f"Database error in save_message: {e}")
+        logger.error(f"Database error in save_message for chat_id {chat_id}: {e}")
+        raise
     finally:
         conn.close()
     return chat_id
@@ -301,11 +319,18 @@ def delete_chat(user_id, chat_id):
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
     c = conn.cursor()
     try:
+        # Check if the chat exists for the user
+        c.execute("SELECT COUNT(*) FROM chats WHERE user_id = ? AND chat_id = ?", (user_id, chat_id))
+        count = c.fetchone()[0]
+        logger.debug(f"Chat {chat_id} count for user {user_id}: {count}")
+        if count == 0:
+            return {"status": "Error", "message": f"Chat {chat_id} not found for user {user_id}"}
         c.execute("DELETE FROM chats WHERE user_id = ? AND chat_id = ?", (user_id, chat_id))
         conn.commit()
+        logger.debug(f"Deleted chat {chat_id} for user {user_id}")
         return {"status": "OK", "message": f"Chat {chat_id} deleted"}
     except sqlite3.Error as e:
-        logger.error(f"Database error in delete_chat: {e}")
+        logger.error(f"Database error in delete_chat for chat_id {chat_id}: {e}")
         return {"status": "Error", "message": str(e)}
     finally:
         conn.close()
@@ -322,7 +347,7 @@ def home():
     user_id = session.get('user_id')
     current_chat_id = request.args.get('chatId') or session.get('current_chat_id')
     if not current_chat_id:
-        current_chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+        current_chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
         session['current_chat_id'] = current_chat_id
     history = get_chat_history(user_id, current_chat_id)
     conn = sqlite3.connect('chat_history.db', check_same_thread=False)
@@ -344,7 +369,7 @@ def login():
         if user and check_password_hash(user['password'], password):
             session['logged_in'] = True
             session['user_id'] = username
-            session['current_chat_id'] = f"chat_{username}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+            session['current_chat_id'] = f"chat_{username}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
             encrypt_credentials(username, password, user['name'], user['email'], user['two_factor_enabled'], user['email_notifications'], user['sms_notifications'], user['security_question1'], user['security_answer1'], user['security_question2'], user['security_answer2'], user['profile_picture'])
             logger.debug(f"Successful login for user: {username}")
             return redirect(url_for('home'))
@@ -399,13 +424,13 @@ def get_response_route():
     try:
         user_message = request.form.get("message")
         user_id = session.get('user_id')
-        chat_id = request.form.get("chatId") or session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}")
+        chat_id = request.form.get("chatId") or session.get('current_chat_id', f"chat_{user_id}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}")
         logger.debug(f"Processing message: {user_message} for user: {user_id}, chat_id: {chat_id}")
         if not user_message:
             logger.debug("No message provided")
             return "No message provided"
         if "new chat" in user_message.lower():
-            chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
+            chat_id = f"chat_{user_id}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
             session['current_chat_id'] = chat_id
             logger.debug(f"New chat started, chat_id: {chat_id}")
             save_message(user_id, "New chat started!", False, chat_id)
@@ -474,13 +499,24 @@ def delete_chat_route():
     try:
         user_id = session.get('user_id')
         chat_id = request.form.get("chatId")
-        logger.debug(f"Deleting chat: {chat_id} for user: {user_id}")
+        logger.debug(f"Deleting chat: {chat_id} for user: {user_id}, received chat_id: {chat_id}")
         if not chat_id:
+            logger.error("No chat ID provided in request")
             return jsonify({"status": "Error", "message": "No chat ID provided"})
+        # Log all existing chat_ids for this user
+        conn = sqlite3.connect('chat_history.db', check_same_thread=False)
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT chat_id FROM chats WHERE user_id = ?", (user_id,))
+        existing_chat_ids = [row[0] for row in c.fetchall()]
+        logger.debug(f"Existing chat_ids for user {user_id}: {existing_chat_ids}")
         result = delete_chat(user_id, chat_id)
         if result["status"] == "OK" and chat_id == session.get('current_chat_id'):
-            session['current_chat_id'] = f"chat_{user_id}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-        return jsonify(result)
+            session['current_chat_id'] = f"chat_{user_id}_{datetime.now().strftime('%Y_%m_%dT%H_%M_%S_%fZ').rstrip('0').rstrip('.')}"
+        logger.debug(f"Delete result: {result}")
+        c.execute("SELECT DISTINCT chat_id FROM chats WHERE user_id = ? ORDER BY timestamp DESC", (user_id,))
+        updated_chat_ids = [row[0] for row in c.fetchall()]
+        conn.close()
+        return jsonify({**result, "updatedChatIds": updated_chat_ids})
     except Exception as e:
         logger.error(f"Error in delete_chat_route: {e}")
         return jsonify({"status": "Error", "message": str(e)})
