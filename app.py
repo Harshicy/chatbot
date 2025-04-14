@@ -235,7 +235,6 @@ def get_user(username):
     row = c.fetchone()
     conn.close()
     if row:
-        # Map tuple to dictionary with column names
         columns = ['id', 'username', 'password', 'name', 'email', 'two_factor_enabled', 'email_notifications',
                    'sms_notifications', 'security_question1', 'security_answer1', 'security_question2',
                    'security_answer2', 'profile_picture']
@@ -324,9 +323,12 @@ def home():
                 session['user_id'] = credentials['username']
                 session['current_chat_id'] = f"chat_{credentials['username']}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
                 logger.debug(f"Auto-logged in user: {credentials['username']}")
-                return redirect(url_for('home'))
-        logger.debug("Redirecting to login page")
-        return redirect(url_for('login'))
+        else:
+            logger.debug("Redirecting to login page due to no session")
+            return redirect(url_for('login'))
+    if not session.get('logged_in'):
+        logger.debug("User not logged in, showing login prompt")
+        return render_template("index.html", logged_in=False)
     user_id = session.get('user_id')
     current_chat_id = request.args.get('chatId') or session.get('current_chat_id')
     if not current_chat_id:
