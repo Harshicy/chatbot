@@ -313,22 +313,12 @@ def delete_chat(user_id, chat_id):
 @app.route("/")
 def home():
     logger.debug("Accessing home route")
+    # Disable auto-login on initial access, only allow after manual login
     if not session.get('logged_in'):
-        credentials = decrypt_credentials()
-        logger.debug(f"Credentials from decrypt: {credentials}")
-        if credentials.get('username') and credentials.get('password'):
-            user = get_user(credentials['username'])
-            if user and check_password_hash(user['password'], credentials['password']):
-                session['logged_in'] = True
-                session['user_id'] = credentials['username']
-                session['current_chat_id'] = f"chat_{credentials['username']}_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}"
-                logger.debug(f"Auto-logged in user: {credentials['username']}")
-        else:
-            logger.debug("Redirecting to login page due to no session")
-            return redirect(url_for('login'))
-    if not session.get('logged_in'):
-        logger.debug("User not logged in, showing login prompt")
-        return render_template("index.html", logged_in=False)
+        session.clear()  # Clear any existing session
+        logger.debug("No active session, redirecting to login")
+        return redirect(url_for('login'))
+    # Proceed only if logged in via /login
     user_id = session.get('user_id')
     current_chat_id = request.args.get('chatId') or session.get('current_chat_id')
     if not current_chat_id:
